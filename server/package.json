@@ -9,7 +9,8 @@
     "db:create": "node scripts/createDatabase.js",
     "db:migrate": "node scripts/migrate.js",
     "db:sync": "node scripts/sync-database.js",
-    "admin:create": "node scripts/create-admin.js"
+    "admin:create": "node scripts/create-admin.js",
+    "admin:quick": "node scripts/create-admin-simple.js"
   },
   "keywords": ["helpdesk", "ticketing", "support"],
   "author": "",
