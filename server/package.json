@@ -7,7 +7,9 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "db:create": "node scripts/createDatabase.js",
-    "db:migrate": "node scripts/migrate.js"
+    "db:migrate": "node scripts/migrate.js",
+    "db:sync": "node scripts/sync-database.js",
+    "admin:create": "node scripts/create-admin.js"
   },
   "keywords": ["helpdesk", "ticketing", "support"],
   "author": "",
