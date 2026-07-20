@@ -12,18 +12,50 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+// Allow multiple origins for CORS
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://intellicare-support.vercel.app'
+];
+
+// Add CLIENT_URL from environment if it exists and not already in list
+if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
+  allowedOrigins.push(process.env.CLIENT_URL);
+}
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Test database connection
+// Test database connection and sync tables
 db.authenticate()
-  .then(() => console.log('✅ Database connected successfully'))
-  .catch(err => console.error('❌ Database connection error:', err));
+  .then(() => {
+    console.log('✅ Database connected successfully');
+    // Auto-sync database tables in production (create tables if they don't exist)
+    if (process.env.NODE_ENV === 'production') {
+      return db.sync({ alter: false, force: false });
+    }
+  })
+  .then(() => {
+    if (process.env.NODE_ENV === 'production') {
+      console.log('✅ Database tables synced');
+    }
+  })
+  .catch(err => console.error('❌ Database error:', err));
 
 // Routes
 app.use('/api/auth', authRoutes);
