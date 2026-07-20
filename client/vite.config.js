@@ -10,6 +10,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    // Ensure public folder assets are copied
+    copyPublicDir: true,
+  },
+  // Ensure public assets are accessible
+  publicDir: 'public',
   server: {
     port: 5173,
     proxy: {
