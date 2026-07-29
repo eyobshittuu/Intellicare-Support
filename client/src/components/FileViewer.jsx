@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Download, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, Loader2, AlertCircle } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
@@ -12,7 +12,6 @@ const FileViewer = ({ file, onClose }) => {
   const [error, setError] = useState(null);
   const [content, setContent] = useState(null);
   const [numPages, setNumPages] = useState(null);
-  const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.0);
 
   const fileName = file.originalName || file.url || '';
@@ -122,14 +121,6 @@ const FileViewer = ({ file, onClose }) => {
     setLoading(false);
   };
 
-  const goToPrevPage = () => {
-    setPageNumber(prev => Math.max(prev - 1, 1));
-  };
-
-  const goToNextPage = () => {
-    setPageNumber(prev => Math.min(prev + 1, numPages));
-  };
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-2xl w-full h-full max-w-6xl max-h-[90vh] flex flex-col">
@@ -225,7 +216,7 @@ const FileViewer = ({ file, onClose }) => {
 
               {/* PDF Viewer */}
               {fileType === 'pdf' && (
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center space-y-4">
                   <Document
                     file={content}
                     onLoadSuccess={onDocumentLoadSuccess}
@@ -240,37 +231,23 @@ const FileViewer = ({ file, onClose }) => {
                       </div>
                     }
                   >
-                    <Page
-                      pageNumber={pageNumber}
-                      scale={scale}
-                      className="shadow-lg"
-                      renderTextLayer={true}
-                      renderAnnotationLayer={true}
-                    />
+                    {/* Render all pages vertically */}
+                    {numPages && Array.from(new Array(numPages), (el, index) => (
+                      <div key={`page_${index + 1}`} className="mb-4">
+                        <Page
+                          pageNumber={index + 1}
+                          scale={scale}
+                          className="shadow-lg"
+                          renderTextLayer={true}
+                          renderAnnotationLayer={true}
+                        />
+                        {/* Page number label */}
+                        <div className="text-center mt-2 text-sm text-gray-600">
+                          Page {index + 1} of {numPages}
+                        </div>
+                      </div>
+                    ))}
                   </Document>
-                  
-                  {/* PDF Navigation */}
-                  {numPages > 1 && (
-                    <div className="flex items-center gap-4 mt-4 bg-white px-6 py-3 rounded-lg shadow">
-                      <button
-                        onClick={goToPrevPage}
-                        disabled={pageNumber <= 1}
-                        className="p-2 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <ChevronLeft size={20} />
-                      </button>
-                      <span className="text-sm font-medium">
-                        Page {pageNumber} of {numPages}
-                      </span>
-                      <button
-                        onClick={goToNextPage}
-                        disabled={pageNumber >= numPages}
-                        className="p-2 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <ChevronRight size={20} />
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
 
