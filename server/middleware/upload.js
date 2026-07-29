@@ -43,15 +43,16 @@ const storage = new CloudinaryStorage({
     
     return {
       folder: 'intellicare-tickets',
-      resource_type: isImage ? 'image' : 'raw', // 'raw' for non-image files
+      resource_type: isImage ? 'image' : 'auto', // Changed from 'raw' to 'auto'
+      type: 'upload', // Explicitly set type to 'upload' (not 'authenticated')
       access_mode: 'public', // Make files publicly accessible
       public_id: `${nameWithoutExt}-${uniqueSuffix}`,
       // Only apply transformation to images
       ...(isImage && {
         transformation: [{ width: 1500, height: 1500, crop: 'limit' }]
       }),
-      // Preserve original format
-      format: ext.replace('.', ''),
+      // Don't specify format for non-images - let Cloudinary auto-detect
+      ...(!isImage && { flags: 'attachment' }), // Force download for non-images
       // Store original filename in context
       context: `original_filename=${file.originalname}`
     };
