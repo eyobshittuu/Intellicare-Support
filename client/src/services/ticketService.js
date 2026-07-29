@@ -12,7 +12,12 @@ export const ticketService = {
   },
 
   async createTicket(data) {
-    const response = await api.post('/tickets', data);
+    const config = data instanceof FormData ? {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    } : {};
+    const response = await api.post('/tickets', data, config);
     return response.data;
   },
 

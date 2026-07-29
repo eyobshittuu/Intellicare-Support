@@ -35,6 +35,8 @@ const TicketDetail = () => {
     try {
       setLoading(true);
       const data = await ticketService.getTicket(id);
+      console.log('Ticket data received:', data);
+      console.log('Attachments:', data.attachments);
       setTicket(data);
       setWorkLog({
         admin_notes: data.admin_notes || '',
@@ -264,13 +266,17 @@ const TicketDetail = () => {
                       <div key={index} className="relative group">
                         <img
                           src={attachment.url}
-                          alt={attachment.originalName}
+                          alt={attachment.originalName || `Attachment ${index + 1}`}
                           className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:border-teal-500 transition-colors"
                           onClick={() => window.open(attachment.url, '_blank')}
+                          onError={(e) => {
+                            console.error('Image failed to load:', attachment.url);
+                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext fill="%23999" x="50%" y="50%" text-anchor="middle" dy=".3em"%3EImage Error%3C/text%3E%3C/svg%3E';
+                          }}
                         />
                         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                          <p className="truncate">{attachment.originalName}</p>
-                          <p>{(attachment.size / 1024).toFixed(1)} KB</p>
+                          <p className="truncate">{attachment.originalName || 'Unknown'}</p>
+                          <p>{attachment.size ? (attachment.size / 1024).toFixed(1) + ' KB' : 'N/A'}</p>
                         </div>
                       </div>
                     ))}
