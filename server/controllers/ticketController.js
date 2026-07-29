@@ -1,6 +1,7 @@
 const { Ticket, User } = require('../models');
 const { Op } = require('sequelize');
 const logger = require('../config/logger');
+const { getPublicUrl } = require('../utils/cloudinaryHelper');
 
 // @desc    Get all tickets (admin sees all, user sees own)
 // @route   GET /api/tickets
@@ -148,18 +149,23 @@ exports.createTicket = async (req, res) => {
     let attachments = null;
     if (req.files && req.files.length > 0) {
       console.log('Processing files:', req.files.length);
-      attachments = req.files.map(file => ({
-        filename: file.filename,
-        originalName: file.originalname,
-        url: file.path, // Cloudinary URL
-        publicId: file.filename, // Cloudinary public ID
-        size: file.size,
-        mimetype: file.mimetype,
-        width: file.width,
-        height: file.height,
-        format: file.format,
-        uploadedAt: new Date()
-      }));
+      attachments = req.files.map(file => {
+        // Generate appropriate URL based on file type
+        const publicUrl = getPublicUrl(file);
+        
+        return {
+          filename: file.filename,
+          originalName: file.originalname,
+          url: publicUrl, // Use signed URL for raw files, direct URL for images
+          publicId: file.filename, // Cloudinary public ID
+          size: file.size,
+          mimetype: file.mimetype,
+          width: file.width,
+          height: file.height,
+          format: file.format,
+          uploadedAt: new Date()
+        };
+      });
       console.log('Attachments prepared:', JSON.stringify(attachments, null, 2));
     }
 
