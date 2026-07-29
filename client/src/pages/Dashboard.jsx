@@ -11,11 +11,10 @@ const Dashboard = () => {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
-  const [pendingTickets, setPendingTickets] = useState([]);
-  const [inProgressTickets, setInProgressTickets] = useState([]);
-  const [completedTickets, setCompletedTickets] = useState([]);
+  const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('pending');
 
   useEffect(() => {
     if (isAdmin) {
@@ -25,24 +24,35 @@ const Dashboard = () => {
     }
   }, [isAdmin]);
 
+  useEffect(() => {
+    if (isAdmin && stats) {
+      fetchTicketsByStatus(activeTab);
+    }
+  }, [activeTab, isAdmin]);
+
   const fetchAdminData = async () => {
     try {
       // Fetch stats
       const statsData = await ticketService.getStats();
       setStats(statsData);
 
-      // Fetch tickets by status
-      const [pending, inProgress, completed] = await Promise.all([
-        ticketService.getTickets({ status: 'pending', limit: 5 }),
-        ticketService.getTickets({ status: 'in_progress', limit: 5 }),
-        ticketService.getTickets({ status: 'completed', limit: 5 })
-      ]);
-
-      setPendingTickets(pending.tickets || []);
-      setInProgressTickets(inProgress.tickets || []);
-      setCompletedTickets(completed.tickets || []);
+      // Fetch initial tickets (pending)
+      const ticketsData = await ticketService.getTickets({ status: 'pending', limit: 10 });
+      setTickets(ticketsData.tickets || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTicketsByStatus = async (status) => {
+    try {
+      setLoading(true);
+      const ticketsData = await ticketService.getTickets({ status, limit: 10 });
+      setTickets(ticketsData.tickets || []);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load tickets');
     } finally {
       setLoading(false);
     }
@@ -209,95 +219,136 @@ const Dashboard = () => {
 
       {/* Ticket Lists - Admin Only */}
       {isAdmin && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Pending Tickets */}
+        <div className="space-y-4">
+          {/* Tab Navigation */}
           <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200 bg-yellow-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock className="text-yellow-600" size={20} />
-                  <h3 className="font-semibold text-gray-900">Pending Tickets</h3>
-                </div>
-                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
-                  {stats?.pending || 0}
-                </span>
-              </div>
-            </div>
-            <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
-              {pendingTickets.length === 0 ? (
-                <p className="text-center text-gray-500 text-sm py-8">No pending tickets</p>
-              ) : (
-                pendingTickets.map(ticket => <TicketCard key={ticket.id} ticket={ticket} />)
-              )}
-              {pendingTickets.length > 0 && (
-                <Link
-                  to="/tickets?status=pending"
-                  className="block text-center text-teal-600 hover:text-teal-700 text-sm font-medium py-2"
+            <div className="border-b border-gray-200">
+              <nav className="flex -mb-px">
+                <button
+                  onClick={() => setActiveTab('pending')}
+                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'pending'
+                      ? 'border-yellow-500 text-yellow-700 bg-yellow-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
                 >
-                  View all pending →
-                </Link>
-              )}
+                  <Clock size={18} />
+                  Pending Tickets
+                  {stats?.pending > 0 && (
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      activeTab === 'pending' 
+                        ? 'bg-yellow-200 text-yellow-800' 
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {stats.pending}
+                    </span>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => setActiveTab('in_progress')}
+                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'in_progress'
+                      ? 'border-blue-500 text-blue-700 bg-blue-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <AlertCircle size={18} />
+                  In Progress
+                  {stats?.in_progress > 0 && (
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      activeTab === 'in_progress' 
+                        ? 'bg-blue-200 text-blue-800' 
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {stats.in_progress}
+                    </span>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => setActiveTab('completed')}
+                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'completed'
+                      ? 'border-green-500 text-green-700 bg-green-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <CheckCircle size={18} />
+                  Completed
+                  {stats?.completed > 0 && (
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      activeTab === 'completed' 
+                        ? 'bg-green-200 text-green-800' 
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {stats.completed}
+                    </span>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => setActiveTab('rejected')}
+                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'rejected'
+                      ? 'border-red-500 text-red-700 bg-red-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <XCircle size={18} />
+                  Rejected
+                  {stats?.rejected > 0 && (
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      activeTab === 'rejected' 
+                        ? 'bg-red-200 text-red-800' 
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {stats.rejected}
+                    </span>
+                  )}
+                </button>
+              </nav>
             </div>
           </div>
 
-          {/* In Progress Tickets */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200 bg-blue-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="text-blue-600" size={20} />
-                  <h3 className="font-semibold text-gray-900">In Progress</h3>
-                </div>
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
-                  {stats?.in_progress || 0}
-                </span>
+          {/* Ticket List */}
+          <div className="bg-white rounded-lg shadow p-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
               </div>
-            </div>
-            <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
-              {inProgressTickets.length === 0 ? (
-                <p className="text-center text-gray-500 text-sm py-8">No tickets in progress</p>
-              ) : (
-                inProgressTickets.map(ticket => <TicketCard key={ticket.id} ticket={ticket} />)
-              )}
-              {inProgressTickets.length > 0 && (
-                <Link
-                  to="/tickets?status=in_progress"
-                  className="block text-center text-teal-600 hover:text-teal-700 text-sm font-medium py-2"
-                >
-                  View all in progress →
-                </Link>
-              )}
-            </div>
-          </div>
-
-          {/* Completed Tickets */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200 bg-green-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="text-green-600" size={20} />
-                  <h3 className="font-semibold text-gray-900">Completed</h3>
-                </div>
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
-                  {stats?.completed || 0}
-                </span>
+            ) : error ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+                {error}
               </div>
-            </div>
-            <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
-              {completedTickets.length === 0 ? (
-                <p className="text-center text-gray-500 text-sm py-8">No completed tickets</p>
-              ) : (
-                completedTickets.map(ticket => <TicketCard key={ticket.id} ticket={ticket} />)
-              )}
-              {completedTickets.length > 0 && (
-                <Link
-                  to="/tickets?status=completed"
-                  className="block text-center text-teal-600 hover:text-teal-700 text-sm font-medium py-2"
-                >
-                  View all completed →
-                </Link>
-              )}
-            </div>
+            ) : tickets.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                  <Ticket className="text-gray-400" size={32} />
+                </div>
+                <p className="text-gray-500">No {activeTab.replace('_', ' ')} tickets</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {tickets.map(ticket => (
+                    <TicketCard key={ticket.id} ticket={ticket} />
+                  ))}
+                </div>
+                
+                {tickets.length >= 10 && (
+                  <div className="mt-6 text-center">
+                    <Link
+                      to={`/tickets?status=${activeTab}`}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
+                    >
+                      View All {activeTab.replace('_', ' ').charAt(0).toUpperCase() + activeTab.replace('_', ' ').slice(1)} Tickets
+                      <ArrowRight size={18} />
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
