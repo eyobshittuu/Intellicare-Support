@@ -149,9 +149,16 @@ exports.createTicket = async (req, res) => {
     let attachments = null;
     if (req.files && req.files.length > 0) {
       console.log('Processing files:', req.files.length);
+      console.log('File details:', req.files.map(f => ({
+        filename: f.filename,
+        path: f.path,
+        mimetype: f.mimetype
+      })));
+      
       attachments = req.files.map(file => {
         // Generate appropriate URL based on file type
         const publicUrl = getPublicUrl(file);
+        console.log('Generated URL for', file.originalname, ':', publicUrl);
         
         return {
           filename: file.filename,
