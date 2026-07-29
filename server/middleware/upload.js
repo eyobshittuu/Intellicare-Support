@@ -67,4 +67,47 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
-module.exports = upload;
+// Add error handling wrapper
+const uploadWithErrorHandling = (req, res, next) => {
+  const uploadMiddleware = upload.array('images', 5);
+  
+  uploadMiddleware(req, res, (err) => {
+    if (err) {
+      console.error('=== UPLOAD MIDDLEWARE ERROR ===');
+      console.error('Error:', err);
+      console.error('Error message:', err.message);
+      console.error('Error code:', err.code);
+      
+      if (err instanceof multer.MulterError) {
+        // Multer-specific errors
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({
+            success: false,
+            message: 'File too large. Maximum size is 5MB per file.'
+          });
+        }
+        if (err.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({
+            success: false,
+            message: 'Too many files. Maximum is 5 files.'
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          message: `Upload error: ${err.message}`
+        });
+      } else {
+        // Other errors (e.g., Cloudinary errors)
+        return res.status(500).json({
+          success: false,
+          message: `Upload failed: ${err.message}`
+        });
+      }
+    }
+    
+    console.log('Upload middleware passed. Files:', req.files?.length || 0);
+    next();
+  });
+};
+
+module.exports = uploadWithErrorHandling;

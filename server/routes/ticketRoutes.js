@@ -22,7 +22,7 @@ router.get('/stats', authorize('admin', 'super_admin'), getStats);
 // CRUD routes
 router.route('/')
   .get(getTickets)
-  .post(upload.array('images', 5), ticketValidation, handleValidationErrors, createTicket);
+  .post(upload, ticketValidation, handleValidationErrors, createTicket);
 
 router.route('/:id')
   .get(getTicket)
