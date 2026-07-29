@@ -5,12 +5,14 @@ const morgan = require('morgan');
 const { Server } = require('socket.io');
 require('dotenv').config();
 
+const logger = require('./config/logger');
 const db = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const setupRoutes = require('./routes/setupRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const logsRoutes = require('./routes/logsRoutes');
 const chatHandler = require('./socket/chatHandler');
 
 const app = express();
@@ -59,7 +61,7 @@ chatHandler(io);
 app.set('io', io);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev'));
+app.use(morgan('combined', { stream: logger.stream }));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
@@ -67,7 +69,7 @@ app.use('/uploads', express.static('uploads'));
 // Test database connection and sync tables
 db.authenticate()
   .then(() => {
-    console.log('✅ Database connected successfully');
+    logger.info('Database connected successfully');
     // Auto-sync database tables in production (create tables if they don't exist)
     if (process.env.NODE_ENV === 'production') {
       // Temporarily enable alter to add missing columns (attachments)
@@ -76,10 +78,10 @@ db.authenticate()
   })
   .then(() => {
     if (process.env.NODE_ENV === 'production') {
-      console.log('✅ Database tables synced');
+      logger.info('Database tables synced');
     }
   })
-  .catch(err => console.error('❌ Database error:', err));
+  .catch(err => logger.error('Database error:', err));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -87,6 +89,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/setup', setupRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/logs', logsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -99,7 +102,7 @@ app.get('/api/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logger.error(err.stack);
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
@@ -117,9 +120,9 @@ app.use('*', (req, res) => {
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV}`);
-  console.log(`💬 Socket.IO enabled`);
+  logger.info(`Server running on http://localhost:${PORT}`);
+  logger.info(`Environment: ${process.env.NODE_ENV}`);
+  logger.info('Socket.IO enabled');
 });
 
 module.exports = app;

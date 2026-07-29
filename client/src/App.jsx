@@ -11,6 +11,7 @@ import TicketDetail from './pages/TicketDetail'
 import CreateTicket from './pages/CreateTicket'
 import Users from './pages/admin/Users'
 import CreateAdmin from './pages/admin/CreateAdmin'
+import SystemLogs from './pages/admin/SystemLogs'
 import Profile from './pages/Profile'
 import Chat from './pages/Chat'
 
@@ -98,6 +99,14 @@ function App() {
               element={
                 <ProtectedRoute superAdminOnly>
                   <CreateAdmin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/system-logs"
+              element={
+                <ProtectedRoute superAdminOnly>
+                  <SystemLogs />
                 </ProtectedRoute>
               }
             />
