@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   RefreshCw, Download, Trash2, Search, Filter, 
-  AlertCircle, Info, AlertTriangle, Activity, Database
+  AlertCircle, Info, AlertTriangle, Activity, Database, User, Ticket, Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../services/api';
@@ -282,16 +282,16 @@ const SystemLogs = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">
                   Timestamp
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                   Level
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Message
+                  Activity Details
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                   Service
                 </th>
               </tr>
@@ -322,8 +322,173 @@ const SystemLogs = () => {
                         {log.level?.toUpperCase() || 'INFO'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-2xl truncate">
-                      {log.message}
+                    <td className="px-6 py-4">
+                      <div className="space-y-2">
+                        {/* Main Message */}
+                        <div className="text-sm font-medium text-gray-900">
+                          {log.message}
+                        </div>
+                        
+                        {/* Action Badge */}
+                        {log.action && (
+                          <div>
+                            <span className="inline-block px-2 py-1 text-xs font-mono bg-gray-100 text-gray-700 rounded">
+                              {log.action}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Details Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600">
+                          {/* User Info */}
+                          {log.userId && (
+                            <div className="flex items-start gap-2">
+                              <User size={14} className="mt-0.5 text-gray-400" />
+                              <div>
+                                <span className="font-medium">User ID:</span> {log.userId}
+                                {log.email && (
+                                  <div className="text-gray-500">{log.email}</div>
+                                )}
+                                {log.name && (
+                                  <div className="text-gray-700 font-medium">{log.name}</div>
+                                )}
+                                {log.role && (
+                                  <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                                    {log.role}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Admin Info (for admin actions) */}
+                          {log.adminId && (
+                            <div className="flex items-start gap-2">
+                              <User size={14} className="mt-0.5 text-teal-400" />
+                              <div>
+                                <span className="font-medium">Admin:</span> {log.adminId}
+                                {log.adminName && (
+                                  <div className="text-teal-700 font-medium">{log.adminName}</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Ticket Info */}
+                          {log.ticketId && (
+                            <div className="flex items-start gap-2">
+                              <Ticket size={14} className="mt-0.5 text-gray-400" />
+                              <div>
+                                <span className="font-medium">Ticket:</span> {log.ticketNumber || log.ticketId}
+                                {log.title && (
+                                  <div className="text-gray-700">{log.title}</div>
+                                )}
+                                {log.category && (
+                                  <span className="text-gray-500">Category: {log.category}</span>
+                                )}
+                                {log.priority && (
+                                  <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                    log.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                                    log.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                    log.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}>
+                                    {log.priority}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Hospital */}
+                          {log.hospital && (
+                            <div className="flex items-start gap-2">
+                              <Building2 size={14} className="mt-0.5 text-gray-400" />
+                              <div>
+                                <span className="font-medium">Hospital:</span>
+                                <div className="text-gray-700">{log.hospital}</div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* IP Address */}
+                          {log.ip && (
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">IP:</span>
+                              <code className="px-2 py-0.5 bg-gray-100 rounded">{log.ip}</code>
+                            </div>
+                          )}
+                          
+                          {/* Target User (for user management actions) */}
+                          {log.targetUserId && (
+                            <div className="flex items-start gap-2">
+                              <User size={14} className="mt-0.5 text-purple-400" />
+                              <div>
+                                <span className="font-medium">Target User:</span> {log.targetUserId}
+                                {log.targetUserEmail && (
+                                  <div className="text-gray-500">{log.targetUserEmail}</div>
+                                )}
+                                {log.targetUserName && (
+                                  <div className="text-gray-700 font-medium">{log.targetUserName}</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Created/Updated By */}
+                          {log.createdBy && (
+                            <div className="flex items-start gap-2">
+                              <User size={14} className="mt-0.5 text-green-400" />
+                              <div>
+                                <span className="font-medium">Created By:</span>
+                                {log.createdByName && (
+                                  <div className="text-green-700 font-medium">{log.createdByName}</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {log.updatedBy && (
+                            <div className="flex items-start gap-2">
+                              <User size={14} className="mt-0.5 text-blue-400" />
+                              <div>
+                                <span className="font-medium">Updated By:</span>
+                                {log.updatedByName && (
+                                  <div className="text-blue-700 font-medium">{log.updatedByName}</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Attachments */}
+                          {log.hasAttachments !== undefined && log.hasAttachments > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Attachments:</span>
+                              <span className="text-gray-700">{log.hasAttachments} file(s)</span>
+                            </div>
+                          )}
+                          
+                          {/* Status Changes */}
+                          {log.previousStatus && log.newStatus && (
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Status:</span>
+                              <span className="text-gray-700">
+                                {log.previousStatus} → {log.newStatus}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Changes Object */}
+                          {log.changes && Object.keys(log.changes).length > 0 && (
+                            <div className="col-span-2">
+                              <span className="font-medium">Changes:</span>
+                              <div className="mt-1 text-xs bg-gray-50 p-2 rounded">
+                                {JSON.stringify(log.changes, null, 2)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {log.service || 'N/A'}
