@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   RefreshCw, Download, Trash2, Search, Filter, 
-  AlertCircle, Info, AlertTriangle, Activity, Database, User, Ticket, Building2
+  AlertCircle, Info, AlertTriangle, Activity, Database, User, Ticket, Building2, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../services/api';
@@ -23,6 +23,7 @@ const SystemLogs = () => {
     limit: 50,
     totalPages: 0
   });
+  const [expandedRows, setExpandedRows] = useState([]);
 
   useEffect(() => {
     fetchLogs();
@@ -136,6 +137,16 @@ const SystemLogs = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
+
+  const toggleRowExpand = (index) => {
+    setExpandedRows(prev => 
+      prev.includes(index) 
+        ? prev.filter(i => i !== index)
+        : [...prev, index]
+    );
+  };
+
+  const isRowExpanded = (index) => expandedRows.includes(index);
 
   return (
     <div className="space-y-6">
@@ -312,188 +323,265 @@ const SystemLogs = () => {
                 </tr>
               ) : (
                 logs.map((log, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatTimestamp(log.timestamp)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border ${getLevelColor(log.level)}`}>
-                        {getLevelIcon(log.level)}
-                        {log.level?.toUpperCase() || 'INFO'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-2">
-                        {/* Main Message */}
-                        <div className="text-sm font-medium text-gray-900">
-                          {log.message}
+                  <>
+                    <tr 
+                      key={index} 
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => toggleRowExpand(index)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center gap-2">
+                          {isRowExpanded(index) ? (
+                            <ChevronDown size={16} className="text-gray-400" />
+                          ) : (
+                            <ChevronRight size={16} className="text-gray-400" />
+                          )}
+                          {formatTimestamp(log.timestamp)}
                         </div>
-                        
-                        {/* Action Badge */}
-                        {log.action && (
-                          <div>
-                            <span className="inline-block px-2 py-1 text-xs font-mono bg-gray-100 text-gray-700 rounded">
-                              {log.action}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* Details Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600">
-                          {/* User Info */}
-                          {log.userId && (
-                            <div className="flex items-start gap-2">
-                              <User size={14} className="mt-0.5 text-gray-400" />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border ${getLevelColor(log.level)}`}>
+                          {getLevelIcon(log.level)}
+                          {log.level?.toUpperCase() || 'INFO'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            {/* Main Message */}
+                            <div className="text-sm font-medium text-gray-900">
+                              {log.message}
+                            </div>
+                            
+                            {/* Action Badge */}
+                            {log.action && (
                               <div>
-                                <span className="font-medium">User ID:</span> {log.userId}
+                                <span className="inline-block px-2 py-1 text-xs font-mono bg-gray-100 text-gray-700 rounded">
+                                  {log.action}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {/* Quick Info Preview */}
+                            {!isRowExpanded(index) && (
+                              <div className="text-xs text-gray-500 flex items-center gap-3">
                                 {log.email && (
-                                  <div className="text-gray-500">{log.email}</div>
-                                )}
-                                {log.name && (
-                                  <div className="text-gray-700 font-medium">{log.name}</div>
-                                )}
-                                {log.role && (
-                                  <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
-                                    {log.role}
+                                  <span className="flex items-center gap-1">
+                                    <User size={12} />
+                                    {log.email}
                                   </span>
                                 )}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Admin Info (for admin actions) */}
-                          {log.adminId && (
-                            <div className="flex items-start gap-2">
-                              <User size={14} className="mt-0.5 text-teal-400" />
-                              <div>
-                                <span className="font-medium">Admin:</span> {log.adminId}
-                                {log.adminName && (
-                                  <div className="text-teal-700 font-medium">{log.adminName}</div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Ticket Info */}
-                          {log.ticketId && (
-                            <div className="flex items-start gap-2">
-                              <Ticket size={14} className="mt-0.5 text-gray-400" />
-                              <div>
-                                <span className="font-medium">Ticket:</span> {log.ticketNumber || log.ticketId}
-                                {log.title && (
-                                  <div className="text-gray-700">{log.title}</div>
-                                )}
-                                {log.category && (
-                                  <span className="text-gray-500">Category: {log.category}</span>
-                                )}
-                                {log.priority && (
-                                  <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                                    log.priority === 'urgent' ? 'bg-red-100 text-red-700' :
-                                    log.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                                    log.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-gray-100 text-gray-700'
-                                  }`}>
-                                    {log.priority}
+                                {log.ticketNumber && (
+                                  <span className="flex items-center gap-1">
+                                    <Ticket size={12} />
+                                    {log.ticketNumber}
                                   </span>
                                 )}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Hospital */}
-                          {log.hospital && (
-                            <div className="flex items-start gap-2">
-                              <Building2 size={14} className="mt-0.5 text-gray-400" />
-                              <div>
-                                <span className="font-medium">Hospital:</span>
-                                <div className="text-gray-700">{log.hospital}</div>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* IP Address */}
-                          {log.ip && (
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">IP:</span>
-                              <code className="px-2 py-0.5 bg-gray-100 rounded">{log.ip}</code>
-                            </div>
-                          )}
-                          
-                          {/* Target User (for user management actions) */}
-                          {log.targetUserId && (
-                            <div className="flex items-start gap-2">
-                              <User size={14} className="mt-0.5 text-purple-400" />
-                              <div>
-                                <span className="font-medium">Target User:</span> {log.targetUserId}
-                                {log.targetUserEmail && (
-                                  <div className="text-gray-500">{log.targetUserEmail}</div>
-                                )}
-                                {log.targetUserName && (
-                                  <div className="text-gray-700 font-medium">{log.targetUserName}</div>
+                                {log.ip && (
+                                  <span>IP: {log.ip}</span>
                                 )}
                               </div>
-                            </div>
-                          )}
-                          
-                          {/* Created/Updated By */}
-                          {log.createdBy && (
-                            <div className="flex items-start gap-2">
-                              <User size={14} className="mt-0.5 text-green-400" />
-                              <div>
-                                <span className="font-medium">Created By:</span>
-                                {log.createdByName && (
-                                  <div className="text-green-700 font-medium">{log.createdByName}</div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {log.updatedBy && (
-                            <div className="flex items-start gap-2">
-                              <User size={14} className="mt-0.5 text-blue-400" />
-                              <div>
-                                <span className="font-medium">Updated By:</span>
-                                {log.updatedByName && (
-                                  <div className="text-blue-700 font-medium">{log.updatedByName}</div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Attachments */}
-                          {log.hasAttachments !== undefined && log.hasAttachments > 0 && (
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">Attachments:</span>
-                              <span className="text-gray-700">{log.hasAttachments} file(s)</span>
-                            </div>
-                          )}
-                          
-                          {/* Status Changes */}
-                          {log.previousStatus && log.newStatus && (
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">Status:</span>
-                              <span className="text-gray-700">
-                                {log.previousStatus} → {log.newStatus}
-                              </span>
-                            </div>
-                          )}
-                          
-                          {/* Changes Object */}
-                          {log.changes && Object.keys(log.changes).length > 0 && (
-                            <div className="col-span-2">
-                              <span className="font-medium">Changes:</span>
-                              <div className="mt-1 text-xs bg-gray-50 p-2 rounded">
-                                {JSON.stringify(log.changes, null, 2)}
-                              </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
+                          <ChevronRight 
+                            size={20} 
+                            className={`text-gray-400 transition-transform ${isRowExpanded(index) ? 'rotate-90' : ''}`}
+                          />
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {log.service || 'N/A'}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {log.service || 'N/A'}
+                      </td>
+                    </tr>
+                    
+                    {/* Expanded Details Row */}
+                    {isRowExpanded(index) && (
+                      <tr key={`${index}-details`} className="bg-gray-50">
+                        <td colSpan="4" className="px-6 py-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            {/* User Info */}
+                            {log.userId && (
+                              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                  <User size={20} className="text-blue-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-700 mb-1">User Information</div>
+                                  <div className="space-y-1 text-xs">
+                                    <div className="text-gray-600">ID: <span className="font-mono">{log.userId}</span></div>
+                                    {log.email && (
+                                      <div className="text-gray-900 font-medium">{log.email}</div>
+                                    )}
+                                    {log.name && (
+                                      <div className="text-gray-700">{log.name}</div>
+                                    )}
+                                    {log.role && (
+                                      <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                                        {log.role.toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Admin Info */}
+                            {log.adminId && (
+                              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-teal-200">
+                                <div className="p-2 bg-teal-100 rounded-lg">
+                                  <User size={20} className="text-teal-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-700 mb-1">Admin</div>
+                                  <div className="space-y-1 text-xs">
+                                    <div className="text-gray-600">ID: <span className="font-mono">{log.adminId}</span></div>
+                                    {log.adminName && (
+                                      <div className="text-teal-700 font-medium">{log.adminName}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Ticket Info */}
+                            {log.ticketId && (
+                              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-purple-200">
+                                <div className="p-2 bg-purple-100 rounded-lg">
+                                  <Ticket size={20} className="text-purple-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-700 mb-1">Ticket Details</div>
+                                  <div className="space-y-1 text-xs">
+                                    {log.ticketNumber && (
+                                      <div className="text-purple-700 font-bold">{log.ticketNumber}</div>
+                                    )}
+                                    {log.title && (
+                                      <div className="text-gray-700">{log.title}</div>
+                                    )}
+                                    <div className="flex items-center gap-2 mt-2">
+                                      {log.category && (
+                                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                                          {log.category}
+                                        </span>
+                                      )}
+                                      {log.priority && (
+                                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                          log.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                                          log.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                          log.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
+                                          'bg-gray-100 text-gray-700'
+                                        }`}>
+                                          {log.priority.toUpperCase()}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Hospital */}
+                            {log.hospital && (
+                              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-green-200">
+                                <div className="p-2 bg-green-100 rounded-lg">
+                                  <Building2 size={20} className="text-green-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-700 mb-1">Hospital</div>
+                                  <div className="text-gray-900 text-xs">{log.hospital}</div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* IP Address */}
+                            {log.ip && (
+                              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-orange-200">
+                                <div className="p-2 bg-orange-100 rounded-lg">
+                                  <Activity size={20} className="text-orange-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-700 mb-1">IP Address</div>
+                                  <code className="text-xs bg-gray-100 px-2 py-1 rounded">{log.ip}</code>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Target User */}
+                            {log.targetUserId && (
+                              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-indigo-200">
+                                <div className="p-2 bg-indigo-100 rounded-lg">
+                                  <User size={20} className="text-indigo-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-700 mb-1">Target User</div>
+                                  <div className="space-y-1 text-xs">
+                                    <div className="text-gray-600">ID: <span className="font-mono">{log.targetUserId}</span></div>
+                                    {log.targetUserEmail && (
+                                      <div className="text-gray-900">{log.targetUserEmail}</div>
+                                    )}
+                                    {log.targetUserName && (
+                                      <div className="text-gray-700 font-medium">{log.targetUserName}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Created/Updated By */}
+                            {(log.createdBy || log.updatedBy) && (
+                              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-green-200">
+                                <div className="p-2 bg-green-100 rounded-lg">
+                                  <User size={20} className="text-green-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-700 mb-1">
+                                    {log.createdBy ? 'Created By' : 'Updated By'}
+                                  </div>
+                                  <div className="text-xs">
+                                    {log.createdByName || log.updatedByName}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Additional Info */}
+                            {(log.hasAttachments || log.previousStatus || log.newStatus) && (
+                              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                  <Info size={20} className="text-gray-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-700 mb-1">Additional Details</div>
+                                  <div className="space-y-1 text-xs text-gray-600">
+                                    {log.hasAttachments !== undefined && log.hasAttachments > 0 && (
+                                      <div>📎 {log.hasAttachments} attachment(s)</div>
+                                    )}
+                                    {log.previousStatus && log.newStatus && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="px-2 py-0.5 bg-gray-100 rounded">{log.previousStatus}</span>
+                                        <span>→</span>
+                                        <span className="px-2 py-0.5 bg-teal-100 text-teal-700 rounded">{log.newStatus}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Changes Object */}
+                            {log.changes && Object.keys(log.changes).length > 0 && (
+                              <div className="col-span-2 p-3 bg-white rounded-lg border border-gray-200">
+                                <div className="font-medium text-gray-700 mb-2">Changes Made</div>
+                                <pre className="text-xs bg-gray-50 p-3 rounded overflow-x-auto">
+                                  {JSON.stringify(log.changes, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))
               )}
             </tbody>
