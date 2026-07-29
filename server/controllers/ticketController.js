@@ -1,5 +1,6 @@
 const { Ticket, User } = require('../models');
 const { Op } = require('sequelize');
+const logger = require('../config/logger');
 
 // @desc    Get all tickets (admin sees all, user sees own)
 // @route   GET /api/tickets
@@ -193,6 +194,20 @@ exports.createTicket = async (req, res) => {
       ]
     });
 
+    // Log ticket creation
+    logger.info('Ticket created', {
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticket_number,
+      title: ticket.title,
+      category: ticket.category,
+      priority: ticket.priority,
+      userId: req.user.id,
+      userName: `${req.user.first_name} ${req.user.last_name}`,
+      hospital: ticket.hospital,
+      hasAttachments: attachments ? attachments.length : 0,
+      action: 'TICKET_CREATE'
+    });
+
     console.log('Ticket fetched with associations');
     res.status(201).json({
       success: true,
@@ -263,8 +278,22 @@ exports.updateTicket = async (req, res) => {
       if (title) ticket.title = title;
       if (description) ticket.description = description;
       if (category) ticket.category = category;
+      
+      // Log user ticket update
+      logger.info('Ticket updated by user', {
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticket_number,
+        userId: req.user.id,
+        userName: `${req.user.first_name} ${req.user.last_name}`,
+        changes: { title: !!title, description: !!description, category: !!category },
+        action: 'TICKET_UPDATE_USER'
+      });
     } else {
       // Admin can update all fields
+      const oldStatus = ticket.status;
+      const oldPriority = ticket.priority;
+      const oldAssignee = ticket.assigned_to;
+      
       if (title) ticket.title = title;
       if (description) ticket.description = description;
       if (category) ticket.category = category;
@@ -273,6 +302,17 @@ exports.updateTicket = async (req, res) => {
         // If status is changing to in_progress and no started_at, set it
         if (status === 'in_progress' && !ticket.started_at) {
           ticket.started_at = new Date();
+          
+          // Log admin started working on ticket
+          logger.info('Admin started working on ticket', {
+            ticketId: ticket.id,
+            ticketNumber: ticket.ticket_number,
+            adminId: req.user.id,
+            adminName: `${req.user.first_name} ${req.user.last_name}`,
+            previousStatus: oldStatus,
+            newStatus: status,
+            action: 'TICKET_START_WORK'
+          });
         }
         ticket.status = status;
         if (status === 'completed') {
@@ -286,6 +326,21 @@ exports.updateTicket = async (req, res) => {
       if (actions_taken !== undefined) ticket.actions_taken = actions_taken;
       if (diagnosis !== undefined) ticket.diagnosis = diagnosis;
       if (resolution_steps !== undefined) ticket.resolution_steps = resolution_steps;
+      
+      // Log admin ticket update
+      logger.info('Ticket updated by admin', {
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticket_number,
+        adminId: req.user.id,
+        adminName: `${req.user.first_name} ${req.user.last_name}`,
+        changes: {
+          status: oldStatus !== status ? { from: oldStatus, to: status } : undefined,
+          priority: oldPriority !== priority ? { from: oldPriority, to: priority } : undefined,
+          assigned: oldAssignee !== assigned_to ? { from: oldAssignee, to: assigned_to } : undefined,
+          workLog: !!(admin_notes || actions_taken || diagnosis || resolution_steps)
+        },
+        action: 'TICKET_UPDATE_ADMIN'
+      });
     }
 
     await ticket.save();
@@ -341,6 +396,16 @@ exports.deleteTicket = async (req, res) => {
     }
 
     await ticket.destroy();
+
+    // Log ticket deletion
+    logger.warn('Ticket deleted', {
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticket_number,
+      title: ticket.title,
+      deletedBy: req.user.id,
+      deletedByName: `${req.user.first_name} ${req.user.last_name}`,
+      action: 'TICKET_DELETE'
+    });
 
     res.json({
       success: true,
@@ -460,6 +525,16 @@ exports.finalizeTicket = async (req, res) => {
           attributes: ['id', 'first_name', 'last_name', 'email']
         }
       ]
+    });
+
+    // Log ticket finalization
+    logger.info('Ticket finalized', {
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticket_number,
+      finalizedBy: req.user.id,
+      finalizedByName: `${req.user.first_name} ${req.user.last_name}`,
+      summary: summary.substring(0, 100) + '...',
+      action: 'TICKET_FINALIZE'
     });
 
     res.json({

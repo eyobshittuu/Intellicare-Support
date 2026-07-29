@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const logger = require('../config/logger');
 
 // Generate JWT token
 const generateToken = (id) => {
@@ -31,6 +32,15 @@ exports.register = async (req, res) => {
       first_name,
       middle_name,
       last_name
+    });
+
+    // Log user registration
+    logger.info('User registered', {
+      userId: user.id,
+      email: user.email,
+      name: `${user.first_name} ${user.last_name}`,
+      role: user.role,
+      action: 'USER_REGISTER'
     });
 
     // Generate token
@@ -73,6 +83,13 @@ exports.login = async (req, res) => {
     });
 
     if (!user) {
+      // Log failed login attempt
+      logger.warn('Failed login attempt - user not found', {
+        email,
+        ip: req.ip,
+        action: 'LOGIN_FAILED'
+      });
+      
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -81,6 +98,14 @@ exports.login = async (req, res) => {
 
     // Check if account is active
     if (!user.is_active) {
+      // Log inactive account login attempt
+      logger.warn('Login attempt on inactive account', {
+        userId: user.id,
+        email: user.email,
+        ip: req.ip,
+        action: 'LOGIN_INACTIVE_ACCOUNT'
+      });
+      
       return res.status(401).json({
         success: false,
         message: 'Account is deactivated. Please contact administrator.'
@@ -90,6 +115,14 @@ exports.login = async (req, res) => {
     // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      // Log failed password attempt
+      logger.warn('Failed login attempt - incorrect password', {
+        userId: user.id,
+        email: user.email,
+        ip: req.ip,
+        action: 'LOGIN_WRONG_PASSWORD'
+      });
+      
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -98,6 +131,15 @@ exports.login = async (req, res) => {
 
     // Generate token
     const token = generateToken(user.id);
+
+    // Log successful login
+    logger.info('User logged in', {
+      userId: user.id,
+      email: user.email,
+      name: `${user.first_name} ${user.last_name}`,
+      role: user.role,
+      action: 'USER_LOGIN'
+    });
 
     res.json({
       success: true,
@@ -158,6 +200,14 @@ exports.updateProfile = async (req, res) => {
 
     await user.save();
 
+    // Log profile update
+    logger.info('User profile updated', {
+      userId: user.id,
+      email: user.email,
+      name: `${user.first_name} ${user.last_name}`,
+      action: 'PROFILE_UPDATE'
+    });
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
@@ -196,6 +246,13 @@ exports.changePassword = async (req, res) => {
     // Update password
     user.password = new_password;
     await user.save();
+
+    // Log password change
+    logger.info('User password changed', {
+      userId: user.id,
+      email: user.email,
+      action: 'PASSWORD_CHANGE'
+    });
 
     res.json({
       success: true,

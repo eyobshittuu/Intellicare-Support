@@ -1,5 +1,6 @@
 const { User, Ticket } = require('../models');
 const { Op } = require('sequelize');
+const logger = require('../config/logger');
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -106,6 +107,17 @@ exports.updateUser = async (req, res) => {
 
     await user.save();
 
+    // Log user update
+    logger.info('User updated by admin', {
+      targetUserId: user.id,
+      targetUserEmail: user.email,
+      targetUserName: `${user.first_name} ${user.last_name}`,
+      updatedBy: req.user.id,
+      updatedByName: `${req.user.first_name} ${req.user.last_name}`,
+      changes: { role: !!role, is_active: is_active !== undefined },
+      action: 'USER_UPDATE'
+    });
+
     res.json({
       success: true,
       message: 'User updated successfully',
@@ -144,6 +156,17 @@ exports.deleteUser = async (req, res) => {
     }
 
     await user.destroy();
+
+    // Log user deletion
+    logger.warn('User deleted by admin', {
+      deletedUserId: user.id,
+      deletedUserEmail: user.email,
+      deletedUserName: `${user.first_name} ${user.last_name}`,
+      deletedUserRole: user.role,
+      deletedBy: req.user.id,
+      deletedByName: `${req.user.first_name} ${req.user.last_name}`,
+      action: 'USER_DELETE'
+    });
 
     res.json({
       success: true,
@@ -214,6 +237,16 @@ exports.createAdmin = async (req, res) => {
       last_name,
       role: 'admin',
       is_active: true
+    });
+
+    // Log admin creation
+    logger.info('Admin user created', {
+      newAdminId: admin.id,
+      newAdminEmail: admin.email,
+      newAdminName: `${admin.first_name} ${admin.last_name}`,
+      createdBy: req.user.id,
+      createdByName: `${req.user.first_name} ${req.user.last_name}`,
+      action: 'ADMIN_CREATE'
     });
 
     res.status(201).json({
