@@ -65,6 +65,23 @@ const CreateTicket = () => {
   const [selectedImages, setSelectedImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
 
+  // Helper function to get file icon and color based on extension
+  const getFileIcon = (extension) => {
+    const ext = extension?.toLowerCase();
+    
+    // Document types
+    if (ext === 'pdf') return { icon: '📄', color: 'bg-red-100 text-red-800' };
+    if (['doc', 'docx'].includes(ext)) return { icon: '📝', color: 'bg-blue-100 text-blue-800' };
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return { icon: '📊', color: 'bg-green-100 text-green-800' };
+    if (ext === 'txt') return { icon: '📃', color: 'bg-gray-100 text-gray-800' };
+    
+    // Archive types
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return { icon: '🗜️', color: 'bg-purple-100 text-purple-800' };
+    
+    // Default
+    return { icon: '📎', color: 'bg-gray-100 text-gray-800' };
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -83,37 +100,50 @@ const CreateTicket = () => {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     
-    // Limit to 5 images
+    // Limit to 5 files
     if (files.length + selectedImages.length > 5) {
-      toast.error('You can upload maximum 5 images');
+      toast.error('You can upload maximum 5 files');
       return;
     }
 
-    // Validate file sizes (5MB max per file)
-    const invalidFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+    // Validate file sizes (10MB max per file)
+    const invalidFiles = files.filter(file => file.size > 10 * 1024 * 1024);
     if (invalidFiles.length > 0) {
-      toast.error('Each image must be less than 5MB');
+      toast.error('Each file must be less than 10MB');
       return;
     }
 
     // Validate file types
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    const invalidTypes = files.filter(file => !validTypes.includes(file.type));
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt', 'zip', 'rar', '7z', 'tar', 'gz'];
+    const invalidTypes = files.filter(file => {
+      const ext = file.name.split('.').pop().toLowerCase();
+      return !allowedExtensions.includes(ext);
+    });
     if (invalidTypes.length > 0) {
-      toast.error('Only image files (JPEG, PNG, GIF, WebP) are allowed');
+      toast.error('File type not supported. Allowed: Images, PDF, Word, Excel, CSV, TXT, ZIP, RAR, 7Z');
       return;
     }
 
     // Add files
     setSelectedImages(prev => [...prev, ...files]);
 
-    // Create previews
+    // Create previews (only for images, icons for others)
     files.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreviews(prev => [...prev, reader.result]);
-      };
-      reader.readAsDataURL(file);
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreviews(prev => [...prev, { type: 'image', url: reader.result, name: file.name, size: file.size }]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // For non-image files, store file info for icon display
+        setImagePreviews(prev => [...prev, { 
+          type: 'file', 
+          name: file.name, 
+          size: file.size,
+          extension: file.name.split('.').pop().toLowerCase()
+        }]);
+      }
     });
   };
 
@@ -307,7 +337,7 @@ const CreateTicket = () => {
             )}
           </div>
 
-          {/* Image Upload */}
+          {/* File Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Attachments (Optional)
@@ -322,12 +352,12 @@ const CreateTicket = () => {
                     <p className="mb-2 text-sm text-gray-500">
                       <span className="font-semibold">Click to upload</span> or drag and drop
                     </p>
-                    <p className="text-xs text-gray-500">PNG, JPG, GIF, WebP (Max 5MB each, up to 5 images)</p>
+                    <p className="text-xs text-gray-500">Images, PDF, Word, Excel, ZIP, RAR (Max 10MB each, up to 5 files)</p>
                   </div>
                   <input
                     type="file"
                     className="hidden"
-                    accept="image/*"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.rar,.7z,.tar,.gz"
                     multiple
                     onChange={handleImageChange}
                     disabled={selectedImages.length >= 5}
@@ -335,16 +365,30 @@ const CreateTicket = () => {
                 </label>
               </div>
 
-              {/* Image Previews */}
+              {/* File Previews */}
               {imagePreviews.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {imagePreviews.map((preview, index) => (
                     <div key={index} className="relative group">
-                      <img
-                        src={preview}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg border border-gray-300"
-                      />
+                      {preview.type === 'image' ? (
+                        // Image preview
+                        <img
+                          src={preview.url}
+                          alt={preview.name}
+                          className="w-full h-32 object-cover rounded-lg border border-gray-300"
+                        />
+                      ) : (
+                        // File icon for non-images
+                        <div className="w-full h-32 flex flex-col items-center justify-center rounded-lg border border-gray-300 bg-gray-50">
+                          <span className="text-4xl mb-2">{getFileIcon(preview.extension).icon}</span>
+                          <span className={`text-xs font-medium px-2 py-1 rounded ${getFileIcon(preview.extension).color}`}>
+                            {preview.extension?.toUpperCase()}
+                          </span>
+                          <span className="text-xs text-gray-600 mt-1 px-2 text-center truncate w-full">
+                            {preview.name.length > 20 ? preview.name.substring(0, 20) + '...' : preview.name}
+                          </span>
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => removeImage(index)}
@@ -355,7 +399,7 @@ const CreateTicket = () => {
                         </svg>
                       </button>
                       <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                        {(selectedImages[index].size / 1024).toFixed(1)} KB
+                        {(preview.size / 1024).toFixed(1)} KB
                       </div>
                     </div>
                   ))}
@@ -364,7 +408,7 @@ const CreateTicket = () => {
 
               {selectedImages.length > 0 && (
                 <p className="text-sm text-gray-600">
-                  {selectedImages.length} image{selectedImages.length > 1 ? 's' : ''} selected
+                  {selectedImages.length} file{selectedImages.length > 1 ? 's' : ''} selected
                   {selectedImages.length < 5 && ' (You can add more)'}
                 </p>
               )}

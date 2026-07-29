@@ -7,6 +7,7 @@ import {
   Save, FileText, CheckCircle, ClipboardList, Stethoscope, Play, Check
 } from 'lucide-react';
 import { toast } from 'sonner';
+import FileViewer from '../components/FileViewer';
 
 const TicketDetail = () => {
   const { id } = useParams();
@@ -26,6 +27,7 @@ const TicketDetail = () => {
   });
   const [summary, setSummary] = useState('');
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [viewingFile, setViewingFile] = useState(null);
 
   useEffect(() => {
     fetchTicket();
@@ -262,24 +264,67 @@ const TicketDetail = () => {
                     Attachments ({ticket.attachments.length})
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {ticket.attachments.map((attachment, index) => (
-                      <div key={index} className="relative group">
-                        <img
-                          src={attachment.url}
-                          alt={attachment.originalName || `Attachment ${index + 1}`}
-                          className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:border-teal-500 transition-colors"
-                          onClick={() => window.open(attachment.url, '_blank')}
-                          onError={(e) => {
-                            console.error('Image failed to load:', attachment.url);
-                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext fill="%23999" x="50%" y="50%" text-anchor="middle" dy=".3em"%3EImage Error%3C/text%3E%3C/svg%3E';
-                          }}
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                          <p className="truncate">{attachment.originalName || 'Unknown'}</p>
-                          <p>{attachment.size ? (attachment.size / 1024).toFixed(1) + ' KB' : 'N/A'}</p>
+                    {ticket.attachments.map((attachment, index) => {
+                      // Determine if it's an image based on URL or originalName
+                      const fileName = attachment.originalName || attachment.url || '';
+                      const extension = fileName.split('.').pop()?.toLowerCase() || '';
+                      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension);
+                      
+                      // Get file icon and color for non-images
+                      const getFileIcon = (ext) => {
+                        if (ext === 'pdf') return { icon: '📄', color: 'bg-red-100 text-red-800', label: 'PDF' };
+                        if (['doc', 'docx'].includes(ext)) return { icon: '📝', color: 'bg-blue-100 text-blue-800', label: 'Word' };
+                        if (['xls', 'xlsx', 'csv'].includes(ext)) return { icon: '📊', color: 'bg-green-100 text-green-800', label: 'Excel' };
+                        if (ext === 'txt') return { icon: '📃', color: 'bg-gray-100 text-gray-800', label: 'Text' };
+                        if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return { icon: '🗜️', color: 'bg-purple-100 text-purple-800', label: 'Archive' };
+                        return { icon: '📎', color: 'bg-gray-100 text-gray-800', label: 'File' };
+                      };
+                      
+                      const fileInfo = getFileIcon(extension);
+                      
+                      return (
+                        <div key={index} className="relative group">
+                          {isImage ? (
+                            // Image preview
+                            <div 
+                              className="w-full h-48 rounded-lg border border-gray-200 cursor-pointer hover:border-teal-500 transition-colors overflow-hidden"
+                              onClick={() => setViewingFile(attachment)}
+                            >
+                              <img
+                                src={attachment.url}
+                                alt={attachment.originalName || `Attachment ${index + 1}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  console.error('Image failed to load:', attachment.url);
+                                  e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500">Image Error</div>';
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            // File icon display
+                            <div 
+                              className="w-full h-48 flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 cursor-pointer hover:border-teal-500 hover:bg-gray-100 transition-colors"
+                              onClick={() => setViewingFile(attachment)}
+                            >
+                              <span className="text-5xl mb-3">{fileInfo.icon}</span>
+                              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${fileInfo.color} mb-2`}>
+                                {extension.toUpperCase()}
+                              </span>
+                              <span className="text-sm text-gray-600 px-3 text-center">
+                                {fileInfo.label}
+                              </span>
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                            <p className="truncate font-medium">{attachment.originalName || 'Unknown'}</p>
+                            <div className="flex items-center justify-between mt-1">
+                              <span>{attachment.size ? (attachment.size / 1024).toFixed(1) + ' KB' : 'N/A'}</span>
+                              <span className="text-teal-300">Click to view</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -610,6 +655,14 @@ const TicketDetail = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* File Viewer Modal */}
+      {viewingFile && (
+        <FileViewer
+          file={viewingFile}
+          onClose={() => setViewingFile(null)}
+        />
       )}
     </div>
   );
