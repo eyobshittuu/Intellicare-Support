@@ -3,12 +3,31 @@ const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
+// Validate Cloudinary configuration
+if (!process.env.CLOUDINARY_CLOUD_NAME || 
+    !process.env.CLOUDINARY_API_KEY || 
+    !process.env.CLOUDINARY_API_SECRET) {
+  console.error('⚠️  WARNING: Cloudinary credentials missing in environment variables');
+  console.error('   CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME ? '✓ Set' : '✗ Missing');
+  console.error('   CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? '✓ Set' : '✗ Missing');
+  console.error('   CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? '✓ Set' : '✗ Missing');
+  console.error('   Image uploads will not work until all credentials are configured');
+}
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+// Log successful configuration (without exposing secrets)
+if (process.env.CLOUDINARY_CLOUD_NAME && 
+    process.env.CLOUDINARY_API_KEY && 
+    process.env.CLOUDINARY_API_SECRET) {
+  console.log('✅ Cloudinary configured successfully');
+  console.log(`   Cloud Name: ${process.env.CLOUDINARY_CLOUD_NAME}`);
+}
 
 // Configure Cloudinary storage
 const storage = new CloudinaryStorage({

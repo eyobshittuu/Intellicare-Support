@@ -70,7 +70,8 @@ db.authenticate()
     console.log('✅ Database connected successfully');
     // Auto-sync database tables in production (create tables if they don't exist)
     if (process.env.NODE_ENV === 'production') {
-      return db.sync({ alter: false, force: false });
+      // Temporarily enable alter to add missing columns (attachments)
+      return db.sync({ alter: true, force: false });
     }
   })
   .then(() => {
