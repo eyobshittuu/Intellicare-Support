@@ -245,7 +245,7 @@ const Chat = () => {
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-800 mb-2">Messages</h2>
           {unreadCount > 0 && (
-            <span className="inline-block px-2 py-1 text-xs bg-blue-500 text-white rounded-full">
+            <span className="inline-block px-2 py-1 text-xs bg-teal-500 text-white rounded-full">
               {unreadCount} unread
             </span>
           )}
@@ -264,7 +264,7 @@ const Chat = () => {
           <input
             type="text"
             placeholder="Search users by name or email..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
             value={searchQuery}
             onChange={(e) => handleSearchUsers(e.target.value)}
           />
@@ -283,7 +283,7 @@ const Chat = () => {
               <span>{searchResults.length > 0 ? 'Search Results' : 'All Users'}</span>
               <button 
                 onClick={() => setShowAllUsers(false)}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-teal-600 hover:text-teal-800"
               >
                 Close
               </button>
@@ -296,7 +296,7 @@ const Chat = () => {
                   onClick={() => handleUserSelect(searchUser)}
                 >
                   <div className="relative">
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                    <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold">
                       {searchUser.first_name[0]}{searchUser.last_name[0]}
                     </div>
                     {isUserOnline(searchUser.id) && (
@@ -327,13 +327,13 @@ const Chat = () => {
               <div
                 key={conv.user.id}
                 className={`p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                  selectedUser?.id === conv.user.id ? 'bg-blue-50' : ''
+                  selectedUser?.id === conv.user.id ? 'bg-teal-50' : ''
                 }`}
                 onClick={() => handleUserSelect(conv.user)}
               >
                 <div className="flex items-start gap-3">
                   <div className="relative">
-                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                    <div className="w-12 h-12 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold">
                       {conv.user.first_name[0]}{conv.user.last_name[0]}
                     </div>
                     {isUserOnline(conv.user.id) && (
@@ -354,7 +354,7 @@ const Chat = () => {
                       {conv.lastMessage.content}
                     </p>
                     {conv.unreadCount > 0 && (
-                      <span className="inline-block mt-1 px-2 py-1 text-xs bg-blue-500 text-white rounded-full">
+                      <span className="inline-block mt-1 px-2 py-1 text-xs bg-teal-500 text-white rounded-full">
                         {conv.unreadCount}
                       </span>
                     )}
@@ -373,7 +373,7 @@ const Chat = () => {
             {/* Chat Header */}
             <div className="bg-white p-4 border-b border-gray-200 flex items-center gap-3">
               <div className="relative">
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold">
                   {selectedUser.first_name[0]}{selectedUser.last_name[0]}
                 </div>
                 {isUserOnline(selectedUser.id) && (
@@ -403,7 +403,7 @@ const Chat = () => {
                       <div
                         className={`px-4 py-2 rounded-lg ${
                           isSent
-                            ? 'bg-blue-500 text-white rounded-br-none'
+                            ? 'bg-teal-500 text-white rounded-br-none'
                             : 'bg-white text-gray-800 rounded-bl-none shadow'
                         }`}
                       >
@@ -441,13 +441,13 @@ const Chat = () => {
                 <input
                   type="text"
                   placeholder="Type a message..."
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   value={newMessage}
                   onChange={handleTyping}
                 />
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!newMessage.trim() || !isConnected}
                 >
                   Send
