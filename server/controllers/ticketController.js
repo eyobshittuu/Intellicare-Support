@@ -127,11 +127,26 @@ exports.getTicket = async (req, res) => {
 // @access  Private
 exports.createTicket = async (req, res) => {
   try {
+    console.log('=== CREATE TICKET DEBUG ===');
+    console.log('Body:', req.body);
+    console.log('Files:', req.files);
+    console.log('User:', req.user?.id);
+    
     const { title, description, category, hospital, priority } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !hospital) {
+      console.error('Missing required fields:', { title: !!title, description: !!description, hospital: !!hospital });
+      return res.status(400).json({
+        success: false,
+        message: 'Title, description, and hospital are required'
+      });
+    }
 
     // Handle uploaded files from Cloudinary
     let attachments = null;
     if (req.files && req.files.length > 0) {
+      console.log('Processing files:', req.files.length);
       attachments = req.files.map(file => ({
         filename: file.filename,
         originalName: file.originalname,
@@ -144,13 +159,15 @@ exports.createTicket = async (req, res) => {
         format: file.format,
         uploadedAt: new Date()
       }));
+      console.log('Attachments prepared:', JSON.stringify(attachments, null, 2));
     }
 
     // Generate ticket number
     const count = await Ticket.count();
     const ticket_number = `TKT-${String(count + 1).padStart(5, '0')}`;
+    console.log('Generated ticket number:', ticket_number);
 
-    const ticket = await Ticket.create({
+    const ticketData = {
       ticket_number,
       title,
       description,
@@ -159,7 +176,11 @@ exports.createTicket = async (req, res) => {
       priority: priority || 'medium',
       user_id: req.user.id,
       attachments
-    });
+    };
+    console.log('Creating ticket with data:', JSON.stringify(ticketData, null, 2));
+
+    const ticket = await Ticket.create(ticketData);
+    console.log('Ticket created with ID:', ticket.id);
 
     // Fetch with associations
     const createdTicket = await Ticket.findByPk(ticket.id, {
@@ -172,13 +193,20 @@ exports.createTicket = async (req, res) => {
       ]
     });
 
+    console.log('Ticket fetched with associations');
     res.status(201).json({
       success: true,
       message: 'Ticket created successfully',
       ticket: createdTicket
     });
   } catch (error) {
-    console.error('Create ticket error:', error);
+    console.error('=== CREATE TICKET ERROR ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    if (error.original) {
+      console.error('Original error:', error.original);
+    }
     res.status(500).json({
       success: false,
       message: 'Error creating ticket',
