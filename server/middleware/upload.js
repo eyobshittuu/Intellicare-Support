@@ -44,6 +44,7 @@ const storage = new CloudinaryStorage({
     return {
       folder: 'intellicare-tickets',
       resource_type: isImage ? 'image' : 'raw', // 'raw' for non-image files
+      access_mode: 'public', // Make files publicly accessible
       public_id: `${nameWithoutExt}-${uniqueSuffix}`,
       // Only apply transformation to images
       ...(isImage && {
