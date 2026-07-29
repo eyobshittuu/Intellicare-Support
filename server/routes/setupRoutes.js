@@ -86,6 +86,7 @@ router.get('/status', async (req, res) => {
       success: true,
       setup_complete: !!adminExists,
       admin_exists: !!adminExists,
+      admin_email: adminExists ? adminExists.email : null,
       total_users: totalUsers,
       message: adminExists 
         ? 'Setup complete - super admin exists' 
@@ -96,6 +97,70 @@ router.get('/status', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error checking setup status',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Reset admin password (emergency use only)
+// @route   POST /api/setup/reset-admin-password
+// @access  Public (with secret key)
+router.post('/reset-admin-password', async (req, res) => {
+  try {
+    const { email, new_password, secret_key } = req.body;
+    
+    // Security: Require a secret key from environment
+    const setupSecret = process.env.SETUP_SECRET || 'intellicare-setup-2024';
+    
+    if (secret_key !== setupSecret) {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid setup secret key'
+      });
+    }
+    
+    // Validation
+    if (!email || !new_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and new_password'
+      });
+    }
+    
+    // Find admin user
+    const admin = await User.findOne({
+      where: { 
+        email,
+        role: 'super_admin'
+      }
+    });
+    
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Super admin not found with this email'
+      });
+    }
+    
+    // Update password
+    admin.password = new_password;
+    await admin.save();
+    
+    res.json({
+      success: true,
+      message: 'Admin password reset successfully',
+      admin: {
+        email: admin.email,
+        first_name: admin.first_name,
+        last_name: admin.last_name,
+        role: admin.role
+      }
+    });
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting password',
       error: error.message
     });
   }

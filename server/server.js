@@ -1,6 +1,8 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const morgan = require('morgan');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const db = require('./config/database');
@@ -8,8 +10,11 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const setupRoutes = require('./routes/setupRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const chatHandler = require('./socket/chatHandler');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // Middleware
@@ -38,6 +43,20 @@ app.use(cors({
   },
   credentials: true
 }));
+
+// Socket.IO setup
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true
+  }
+});
+
+// Initialize chat handler
+chatHandler(io);
+
+// Make io accessible to routes
+app.set('io', io);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
@@ -63,6 +82,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/setup', setupRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -92,9 +112,10 @@ app.use('*', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV}`);
+  console.log(`💬 Socket.IO enabled`);
 });
 
 module.exports = app;

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { SocketProvider } from './context/SocketContext'
 
 // Pages
 import Login from './pages/auth/Login'
@@ -11,6 +12,7 @@ import CreateTicket from './pages/CreateTicket'
 import Users from './pages/admin/Users'
 import CreateAdmin from './pages/admin/CreateAdmin'
 import Profile from './pages/Profile'
+import Chat from './pages/Chat'
 
 // Layouts
 import MainLayout from './layouts/MainLayout'
@@ -50,58 +52,61 @@ const ProtectedRoute = ({ children, adminOnly = false, superAdminOnly = false, u
 function App() {
   return (
     <Router>
-      <Routes>
-        {/* Public Auth Routes */}
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-        </Route>
+      <SocketProvider>
+        <Routes>
+          {/* Public Auth Routes */}
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Route>
 
-        {/* Protected Routes */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/tickets" element={<Tickets />} />
+          {/* Protected Routes */}
           <Route
-            path="/tickets/new"
             element={
-              <ProtectedRoute userOnly>
-                <CreateTicket />
+              <ProtectedRoute>
+                <MainLayout />
               </ProtectedRoute>
             }
-          />
-          <Route path="/tickets/:id" element={<TicketDetail />} />
-          <Route path="/profile" element={<Profile />} />
-          
-          {/* Admin Only Routes */}
-          <Route
-            path="/users"
-            element={
-              <ProtectedRoute adminOnly>
-                <Users />
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Super Admin Only Routes */}
-          <Route
-            path="/users/create-admin"
-            element={
-              <ProtectedRoute superAdminOnly>
-                <CreateAdmin />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
+          >
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/tickets" element={<Tickets />} />
+            <Route
+              path="/tickets/new"
+              element={
+                <ProtectedRoute userOnly>
+                  <CreateTicket />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/tickets/:id" element={<TicketDetail />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/chat" element={<Chat />} />
+            
+            {/* Admin Only Routes */}
+            <Route
+              path="/users"
+              element={
+                <ProtectedRoute adminOnly>
+                  <Users />
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Super Admin Only Routes */}
+            <Route
+              path="/users/create-admin"
+              element={
+                <ProtectedRoute superAdminOnly>
+                  <CreateAdmin />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
 
-        {/* Catch all redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Catch all redirect */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </SocketProvider>
     </Router>
   )
 }

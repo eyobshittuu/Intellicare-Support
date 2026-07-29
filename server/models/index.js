@@ -1,6 +1,7 @@
 const sequelize = require('../config/database');
 const User = require('./User');
 const Ticket = require('./Ticket');
+const Message = require('./Message');
 
 // Define relationships
 User.hasMany(Ticket, {
@@ -33,8 +34,30 @@ User.hasMany(Ticket, {
   as: 'finalized_tickets'
 });
 
+// Message relationships
+User.hasMany(Message, {
+  foreignKey: 'sender_id',
+  as: 'sent_messages'
+});
+
+User.hasMany(Message, {
+  foreignKey: 'recipient_id',
+  as: 'received_messages'
+});
+
+Message.belongsTo(User, {
+  foreignKey: 'sender_id',
+  as: 'sender'
+});
+
+Message.belongsTo(User, {
+  foreignKey: 'recipient_id',
+  as: 'recipient'
+});
+
 module.exports = {
   sequelize,
   User,
-  Ticket
+  Ticket,
+  Message
 };
