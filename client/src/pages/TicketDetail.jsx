@@ -263,10 +263,10 @@ const TicketDetail = () => {
                     {ticket.attachments.map((attachment, index) => (
                       <div key={index} className="relative group">
                         <img
-                          src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${attachment.path}`}
+                          src={attachment.url}
                           alt={attachment.originalName}
                           className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:border-teal-500 transition-colors"
-                          onClick={() => window.open(`${import.meta.env.VITE_API_URL.replace('/api', '')}${attachment.path}`, '_blank')}
+                          onClick={() => window.open(attachment.url, '_blank')}
                         />
                         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
                           <p className="truncate">{attachment.originalName}</p>

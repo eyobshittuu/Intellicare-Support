@@ -129,15 +129,19 @@ exports.createTicket = async (req, res) => {
   try {
     const { title, description, category, hospital, priority } = req.body;
 
-    // Handle uploaded files
+    // Handle uploaded files from Cloudinary
     let attachments = null;
     if (req.files && req.files.length > 0) {
       attachments = req.files.map(file => ({
         filename: file.filename,
         originalName: file.originalname,
-        path: `/uploads/tickets/${file.filename}`,
+        url: file.path, // Cloudinary URL
+        publicId: file.filename, // Cloudinary public ID
         size: file.size,
         mimetype: file.mimetype,
+        width: file.width,
+        height: file.height,
+        format: file.format,
         uploadedAt: new Date()
       }));
     }
