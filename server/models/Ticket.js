@@ -93,6 +93,12 @@ const Ticket = sequelize.define('Ticket', {
   finalized_at: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  attachments: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Array of image URLs uploaded with the ticket'
   }
 }, {
   tableName: 'tickets',

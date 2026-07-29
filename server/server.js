@@ -61,6 +61,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
+
 // Test database connection and sync tables
 db.authenticate()
   .then(() => {

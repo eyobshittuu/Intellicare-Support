@@ -62,6 +62,8 @@ const CreateTicket = () => {
     priority: 'medium'
   });
   const [errors, setErrors] = useState({});
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -76,6 +78,48 @@ const CreateTicket = () => {
         [name]: ''
       }));
     }
+  };
+
+  const handleImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    
+    // Limit to 5 images
+    if (files.length + selectedImages.length > 5) {
+      toast.error('You can upload maximum 5 images');
+      return;
+    }
+
+    // Validate file sizes (5MB max per file)
+    const invalidFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+    if (invalidFiles.length > 0) {
+      toast.error('Each image must be less than 5MB');
+      return;
+    }
+
+    // Validate file types
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const invalidTypes = files.filter(file => !validTypes.includes(file.type));
+    if (invalidTypes.length > 0) {
+      toast.error('Only image files (JPEG, PNG, GIF, WebP) are allowed');
+      return;
+    }
+
+    // Add files
+    setSelectedImages(prev => [...prev, ...files]);
+
+    // Create previews
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviews(prev => [...prev, reader.result]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const validateForm = () => {
@@ -116,7 +160,20 @@ const CreateTicket = () => {
     setLoading(true);
 
     try {
-      const response = await ticketService.createTicket(formData);
+      // Create FormData to handle file uploads
+      const formDataToSend = new FormData();
+      formDataToSend.append('title', formData.title);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('hospital', formData.hospital);
+      formDataToSend.append('category', formData.category);
+      formDataToSend.append('priority', formData.priority);
+
+      // Append images
+      selectedImages.forEach((image) => {
+        formDataToSend.append('images', image);
+      });
+
+      const response = await ticketService.createTicket(formDataToSend);
       toast.success('Ticket created successfully!');
       navigate('/tickets');
     } catch (error) {
@@ -248,6 +305,70 @@ const CreateTicket = () => {
             {errors.description && (
               <p className="mt-1 text-sm text-red-600">{errors.description}</p>
             )}
+          </div>
+
+          {/* Image Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Attachments (Optional)
+            </label>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center w-full">
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg className="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="mb-2 text-sm text-gray-500">
+                      <span className="font-semibold">Click to upload</span> or drag and drop
+                    </p>
+                    <p className="text-xs text-gray-500">PNG, JPG, GIF, WebP (Max 5MB each, up to 5 images)</p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageChange}
+                    disabled={selectedImages.length >= 5}
+                  />
+                </label>
+              </div>
+
+              {/* Image Previews */}
+              {imagePreviews.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {imagePreviews.map((preview, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg border border-gray-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                      <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                        {(selectedImages[index].size / 1024).toFixed(1)} KB
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedImages.length > 0 && (
+                <p className="text-sm text-gray-600">
+                  {selectedImages.length} image{selectedImages.length > 1 ? 's' : ''} selected
+                  {selectedImages.length < 5 && ' (You can add more)'}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Buttons */}

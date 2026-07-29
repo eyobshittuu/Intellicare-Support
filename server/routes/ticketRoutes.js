@@ -11,6 +11,7 @@ const {
 } = require('../controllers/ticketController');
 const { protect, authorize } = require('../middleware/auth');
 const { ticketValidation, handleValidationErrors } = require('../middleware/validator');
+const upload = require('../middleware/upload');
 
 // All routes are protected
 router.use(protect);
@@ -21,7 +22,7 @@ router.get('/stats', authorize('admin', 'super_admin'), getStats);
 // CRUD routes
 router.route('/')
   .get(getTickets)
-  .post(ticketValidation, handleValidationErrors, createTicket);
+  .post(upload.array('images', 5), ticketValidation, handleValidationErrors, createTicket);
 
 router.route('/:id')
   .get(getTicket)

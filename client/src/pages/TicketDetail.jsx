@@ -246,9 +246,37 @@ const TicketDetail = () => {
 
           {/* Ticket Details Tab */}
           {activeTab === 'details' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Description</h2>
-              <p className="text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
+            <div className="space-y-6">
+              {/* Description */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Description</h2>
+                <p className="text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
+              </div>
+
+              {/* Attachments */}
+              {ticket.attachments && ticket.attachments.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    Attachments ({ticket.attachments.length})
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {ticket.attachments.map((attachment, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${attachment.path}`}
+                          alt={attachment.originalName}
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:border-teal-500 transition-colors"
+                          onClick={() => window.open(`${import.meta.env.VITE_API_URL.replace('/api', '')}${attachment.path}`, '_blank')}
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                          <p className="truncate">{attachment.originalName}</p>
+                          <p>{(attachment.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

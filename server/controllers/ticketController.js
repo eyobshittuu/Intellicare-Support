@@ -129,6 +129,19 @@ exports.createTicket = async (req, res) => {
   try {
     const { title, description, category, hospital, priority } = req.body;
 
+    // Handle uploaded files
+    let attachments = null;
+    if (req.files && req.files.length > 0) {
+      attachments = req.files.map(file => ({
+        filename: file.filename,
+        originalName: file.originalname,
+        path: `/uploads/tickets/${file.filename}`,
+        size: file.size,
+        mimetype: file.mimetype,
+        uploadedAt: new Date()
+      }));
+    }
+
     // Generate ticket number
     const count = await Ticket.count();
     const ticket_number = `TKT-${String(count + 1).padStart(5, '0')}`;
@@ -140,7 +153,8 @@ exports.createTicket = async (req, res) => {
       category,
       hospital,
       priority: priority || 'medium',
-      user_id: req.user.id
+      user_id: req.user.id,
+      attachments
     });
 
     // Fetch with associations
