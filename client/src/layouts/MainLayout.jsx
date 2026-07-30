@@ -1,45 +1,14 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, MessageSquare, FileText, TrendingUp } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { getUnreadCount } from '../services/chatService';
-import { useSocket } from '../context/SocketContext';
+import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, FileText, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
 
 const MainLayout = () => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { socket } = useSocket();
   const [sidebarOpen, setSidebarOpen] = useState(true); // Desktop sidebar open by default
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // Mobile menu separate state
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  // Load unread count
-  useEffect(() => {
-    loadUnreadCount();
-  }, []);
-
-  // Listen for new messages
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('message:received', () => {
-      loadUnreadCount();
-    });
-
-    return () => {
-      socket.off('message:received');
-    };
-  }, [socket]);
-
-  const loadUnreadCount = async () => {
-    try {
-      const response = await getUnreadCount();
-      setUnreadCount(response.data.count);
-    } catch (error) {
-      console.error('Error loading unread count:', error);
-    }
-  };
 
   const handleLogout = () => {
     logout();
@@ -49,7 +18,6 @@ const MainLayout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Tickets', href: '/tickets', icon: Ticket },
-    { name: 'Messages', href: '/chat', icon: MessageSquare, badge: unreadCount },
     ...(isAdmin ? [{ name: 'Users', href: '/users', icon: Users }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Performance', href: '/performance', icon: TrendingUp }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'System Logs', href: '/system-logs', icon: FileText }] : []),
@@ -155,16 +123,6 @@ const MainLayout = () => {
                   }`}>
                     {item.name}
                   </span>
-                  {item.badge > 0 && (
-                    <span className={`ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full ${
-                      sidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )}
-                  {item.badge > 0 && !sidebarOpen && (
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
-                  )}
                 </Link>
               );
             })}
@@ -194,11 +152,6 @@ const MainLayout = () => {
                   >
                     <Icon size={20} />
                     {item.name}
-                    {item.badge > 0 && (
-                      <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                        {item.badge}
-                      </span>
-                    )}
                   </Link>
                 );
               })}

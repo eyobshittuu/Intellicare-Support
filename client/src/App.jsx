@@ -14,7 +14,7 @@ import CreateAdmin from './pages/admin/CreateAdmin'
 import SystemLogs from './pages/admin/SystemLogs'
 import Performance from './pages/admin/Performance'
 import Profile from './pages/Profile'
-import Chat from './pages/Chat'
+// import Chat from './pages/Chat' // Removed: Chat is now inside ticket details
 
 // Layouts
 import MainLayout from './layouts/MainLayout'
@@ -82,7 +82,8 @@ function App() {
             />
             <Route path="/tickets/:id" element={<TicketDetail />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/chat" element={<Chat />} />
+            {/* <Route path="/chat" element={<Chat />} /> */}
+            {/* Chat removed: Now available inside ticket details */}
             
             {/* Admin Only Routes */}
             <Route
