@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { ticketService } from '../services/ticketService';
 import { userService } from '../services/userService';
+import { getMessages } from '../services/chatService';
 import { 
   ArrowLeft, Calendar, User, Building2, Tag, Clock, Loader2, 
-  Save, FileText, CheckCircle, ClipboardList, Stethoscope, Play, Check, UserPlus
+  Save, FileText, CheckCircle, ClipboardList, Stethoscope, Play, Check, UserPlus, MessageSquare, Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import FileViewer from '../components/FileViewer';
@@ -14,6 +16,7 @@ const TicketDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAdmin, isSuperAdmin, user } = useAuth();
+  const { socket, isConnected } = useSocket();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('details');
@@ -33,6 +36,13 @@ const TicketDetail = () => {
   const [selectedAdmin, setSelectedAdmin] = useState('');
   const [difficulty, setDifficulty] = useState(3);
   const [viewingFile, setViewingFile] = useState(null);
+  
+  // Chat states
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const difficultyLabels = {
     1: { label: 'Very Easy', desc: 'Basic inquiries, simple issues', color: 'text-green-600' },
@@ -48,6 +58,152 @@ const TicketDetail = () => {
       fetchAdmins();
     }
   }, [id, isSuperAdmin]);
+
+  // Load messages when chat tab is active and we know who to chat with
+  useEffect(() => {
+    if (activeTab === 'chat' && ticket) {
+      const chatPartnerId = getChatPartnerId();
+      if (chatPartnerId) {
+        loadMessages(chatPartnerId);
+      }
+    }
+  }, [activeTab, ticket]);
+
+  // Setup socket listeners for chat
+  useEffect(() => {
+    if (!socket || activeTab !== 'chat') return;
+
+    const chatPartnerId = getChatPartnerId();
+    if (!chatPartnerId) return;
+
+    socket.on('message:received', (message) => {
+      // Only add message if it's from/to the chat partner
+      if ((message.sender_id === chatPartnerId && message.recipient_id === user.id) ||
+          (message.sender_id === user.id && message.recipient_id === chatPartnerId)) {
+        setMessages(prev => [...prev, message]);
+        
+        // Mark as read if we received it
+        if (message.recipient_id === user.id) {
+          socket.emit('message:read', { messageId: message.id });
+        }
+      }
+    });
+
+    socket.on('typing:start', (data) => {
+      if (data.userId === chatPartnerId) {
+        setIsTyping(true);
+      }
+    });
+
+    socket.on('typing:stop', (data) => {
+      if (data.userId === chatPartnerId) {
+        setIsTyping(false);
+      }
+    });
+
+    return () => {
+      socket.off('message:received');
+      socket.off('typing:start');
+      socket.off('typing:stop');
+    };
+  }, [socket, activeTab, ticket, user]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      scrollToBottom();
+    }
+  }, [messages, activeTab]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Determine who the current user should chat with
+  const getChatPartnerId = () => {
+    if (!ticket) return null;
+    
+    // If user is the ticket creator, chat with assigned admin
+    if (ticket.user_id === user.id) {
+      return ticket.assigned_to || null;
+    }
+    
+    // If user is admin/super_admin, chat with ticket creator
+    if (isAdmin) {
+      return ticket.user_id || null;
+    }
+    
+    return null;
+  };
+
+  const getChatPartner = () => {
+    if (!ticket) return null;
+    
+    // If user is the ticket creator, chat with assigned admin
+    if (ticket.user_id === user.id) {
+      return ticket.assignee || null;
+    }
+    
+    // If user is admin/super_admin, chat with ticket creator
+    if (isAdmin) {
+      return ticket.user || null;
+    }
+    
+    return null;
+  };
+
+  const loadMessages = async (partnerId) => {
+    try {
+      const response = await getMessages(partnerId);
+      setMessages(response.data);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      toast.error('Failed to load chat messages');
+    }
+  };
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    
+    if (!newMessage.trim() || !socket || !isConnected) return;
+
+    const chatPartnerId = getChatPartnerId();
+    if (!chatPartnerId) {
+      toast.error('No chat partner available');
+      return;
+    }
+
+    socket.emit('message:send', {
+      recipient_id: chatPartnerId,
+      content: newMessage.trim()
+    });
+
+    setNewMessage('');
+    
+    // Stop typing indicator
+    socket.emit('typing:stop', { recipient_id: chatPartnerId });
+  };
+
+  const handleTyping = (e) => {
+    setNewMessage(e.target.value);
+
+    if (!socket) return;
+    const chatPartnerId = getChatPartnerId();
+    if (!chatPartnerId) return;
+
+    // Start typing indicator
+    socket.emit('typing:start', { recipient_id: chatPartnerId });
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Stop typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit('typing:stop', { recipient_id: chatPartnerId });
+    }, 2000);
+  };
 
   const fetchTicket = async () => {
     try {
@@ -276,7 +432,7 @@ const TicketDetail = () => {
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Tabs */}
-          {isAdmin && (
+          {isAdmin ? (
             <div className="bg-white rounded-lg shadow">
               <div className="border-b border-gray-200">
                 <nav className="flex -mb-px">
@@ -301,6 +457,46 @@ const TicketDetail = () => {
                   >
                     <ClipboardList className="inline mr-2" size={18} />
                     Admin Work Log
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('chat')}
+                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'chat'
+                        ? 'border-teal-600 text-teal-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <MessageSquare className="inline mr-2" size={18} />
+                    Chat with Admin
+                  </button>
+                </nav>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow">
+              <div className="border-b border-gray-200">
+                <nav className="flex -mb-px">
+                  <button
+                    onClick={() => setActiveTab('details')}
+                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'details'
+                        ? 'border-teal-600 text-teal-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <FileText className="inline mr-2" size={18} />
+                    Details
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('chat')}
+                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'chat'
+                        ? 'border-teal-600 text-teal-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <MessageSquare className="inline mr-2" size={18} />
+                    Chat with Support
                   </button>
                 </nav>
               </div>
@@ -553,6 +749,136 @@ const TicketDetail = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Chat Tab */}
+          {activeTab === 'chat' && (
+            <div className="bg-white rounded-lg shadow flex flex-col h-[600px]">
+              {(() => {
+                const chatPartner = getChatPartner();
+                const chatPartnerId = getChatPartnerId();
+                
+                if (!chatPartner || !chatPartnerId) {
+                  return (
+                    <div className="flex-1 flex items-center justify-center text-gray-500">
+                      <div className="text-center">
+                        <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <p className="text-lg font-medium">No chat available</p>
+                        <p className="text-sm mt-2">
+                          {ticket.user_id === user.id 
+                            ? 'This ticket has not been assigned to an admin yet.' 
+                            : 'The ticket creator is no longer available.'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <>
+                    {/* Chat Header */}
+                    <div className="p-4 border-b border-gray-200 flex items-center gap-3">
+                      <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold">
+                        {chatPartner.first_name[0]}{chatPartner.last_name[0]}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-800">
+                          {chatPartner.first_name} {chatPartner.last_name}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {ticket.user_id === user.id ? 'Assigned Admin' : 'Ticket Creator'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className="text-gray-600">
+                          {isConnected ? 'Connected' : 'Disconnected'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                      {messages.length === 0 ? (
+                        <div className="flex items-center justify-center h-full text-gray-500">
+                          <div className="text-center">
+                            <MessageSquare className="mx-auto h-10 w-10 text-gray-400 mb-2" />
+                            <p className="text-sm">No messages yet</p>
+                            <p className="text-xs mt-1">Start the conversation about this ticket</p>
+                          </div>
+                        </div>
+                      ) : (
+                        messages.map((message) => {
+                          const isSent = message.sender_id === user.id;
+                          return (
+                            <div
+                              key={message.id}
+                              className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
+                            >
+                              <div className={`max-w-md`}>
+                                <div
+                                  className={`px-4 py-2 rounded-lg ${
+                                    isSent
+                                      ? 'bg-teal-500 text-white rounded-br-none'
+                                      : 'bg-white text-gray-800 rounded-bl-none shadow'
+                                  }`}
+                                >
+                                  <p className="break-words">{message.content}</p>
+                                </div>
+                                <div className={`mt-1 text-xs text-gray-500 ${isSent ? 'text-right' : 'text-left'}`}>
+                                  {new Date(message.created_at).toLocaleTimeString('en-US', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  })}
+                                  {isSent && message.is_read && (
+                                    <span className="ml-1">✓✓</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                      
+                      {isTyping && (
+                        <div className="flex justify-start">
+                          <div className="bg-white px-4 py-2 rounded-lg shadow">
+                            <div className="flex gap-1">
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Message Input */}
+                    <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Type a message about this ticket..."
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          value={newMessage}
+                          onChange={handleTyping}
+                        />
+                        <button
+                          type="submit"
+                          className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          disabled={!newMessage.trim() || !isConnected}
+                        >
+                          <Send size={18} />
+                          Send
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                );
+              })()}
             </div>
           )}
 
