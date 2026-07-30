@@ -687,4 +687,73 @@ router.get('/add-channels-support', async (req, res) => {
   }
 });
 
+/**
+ * FIX RECIPIENT_ID NULLABLE
+ * 
+ * Make recipient_id nullable in messages table for channel messages
+ * GET https://intellicare-support-1.onrender.com/api/migrate/fix-recipient-id-nullable
+ */
+router.get('/fix-recipient-id-nullable', async (req, res) => {
+  try {
+    logger.info('🔄 Starting migration: Make recipient_id nullable');
+
+    const dialect = db.getDialect();
+    
+    if (dialect === 'postgres') {
+      await db.query(`
+        ALTER TABLE messages ALTER COLUMN recipient_id DROP NOT NULL;
+      `);
+      
+      logger.info('✅ PostgreSQL: recipient_id is now nullable');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'PostgreSQL',
+        changes: 'Made recipient_id nullable in messages table',
+        note: 'Channel messages can now be sent without recipient_id'
+      });
+
+    } else if (dialect === 'mysql') {
+      await db.query(`ALTER TABLE messages MODIFY recipient_id BIGINT UNSIGNED NULL`);
+
+      logger.info('✅ MySQL: recipient_id is now nullable');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'MySQL',
+        changes: 'Made recipient_id nullable in messages table',
+        note: 'Channel messages can now be sent without recipient_id'
+      });
+
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported database dialect: ${dialect}`
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Migration failed:', error);
+
+    // Check if already nullable
+    if (error.message && error.message.includes('does not exist')) {
+      return res.json({
+        success: true,
+        message: 'Column is already nullable',
+        note: 'No changes needed'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message,
+      hint: 'Check server logs for more details',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 module.exports = router;
