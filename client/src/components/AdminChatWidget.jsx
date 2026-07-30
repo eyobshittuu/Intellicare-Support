@@ -864,23 +864,39 @@ const AdminChatWidget = () => {
                           </button>
                           
                           {showEmojiPicker && (
-                            <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 p-3 grid grid-cols-8 gap-1 z-50">
-                              {['😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊',
-                                '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘',
-                                '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪',
-                                '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒',
-                                '👍', '👎', '👌', '✌️', '🤞', '🤝', '👏', '🙌',
-                                '💪', '🙏', '❤️', '💔', '💯', '🔥', '✨', '🎉',
-                                '🎊', '🎈', '🎁', '🏆', '🥇', '🥈', '🥉', '⭐'].map((emoji) => (
-                                <button
-                                  key={emoji}
-                                  type="button"
-                                  onClick={() => handleEmojiSelect(emoji)}
-                                  className="text-xl hover:scale-125 transition-transform"
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
+                            <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-xl border border-gray-300 w-80 z-50">
+                              {/* Header */}
+                              <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                                <p className="text-xs font-semibold text-gray-700">Select Emoji</p>
+                              </div>
+                              
+                              {/* Emoji Grid */}
+                              <div className="p-3 max-h-64 overflow-y-auto">
+                                <div className="grid grid-cols-8 gap-2">
+                                  {['😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊',
+                                    '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘',
+                                    '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪',
+                                    '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒',
+                                    '😞', '😔', '😟', '😕', '🙁', '😣', '😖', '😫',
+                                    '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
+                                    '👍', '👎', '👌', '✌️', '🤞', '🤝', '👏', '🙌',
+                                    '💪', '🙏', '✋', '👋', '🤚', '👆', '👇', '☝️',
+                                    '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+                                    '💔', '❤️‍🔥', '💕', '💖', '💗', '💓', '💞', '💝',
+                                    '💯', '🔥', '✨', '⭐', '🌟', '💫', '✅', '❌',
+                                    '🎉', '🎊', '🎈', '🎁', '🏆', '🥇', '🥈', '🥉'].map((emoji) => (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => handleEmojiSelect(emoji)}
+                                      className="text-2xl p-2 hover:bg-gray-100 rounded transition-colors flex items-center justify-center"
+                                      title={emoji}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
