@@ -152,6 +152,8 @@ const AdminChatWidget = () => {
 
   // Scroll to bottom when messages change
   useEffect(() => {
+    console.log('Messages state changed. Count:', messages.length);
+    console.log('Current messages:', messages);
     scrollToBottom();
   }, [messages]);
 
@@ -239,8 +241,12 @@ const AdminChatWidget = () => {
       const response = await getChannelMessages(channelId);
       console.log('Channel messages response:', response);
       if (response.success && response.data) {
+        console.log('Setting messages. Count:', response.data.length);
+        console.log('Messages data:', response.data);
         setMessages(response.data);
-        console.log('Set channel messages:', response.data);
+      } else {
+        console.log('Response not successful or no data');
+        setMessages([]);
       }
     } catch (error) {
       console.error('Error loading channel messages:', error);
