@@ -69,19 +69,23 @@ app.use(morgan('combined', { stream: logger.stream }));
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
-// Test database connection and sync tables
+// Test database connection
 db.authenticate()
   .then(() => {
     logger.info('Database connected successfully');
-    // Auto-sync database tables in production (create tables if they don't exist)
-    if (process.env.NODE_ENV === 'production') {
-      // Temporarily enable alter to add missing columns (attachments)
+    // In production, use migration endpoints instead of auto-sync
+    // Run: GET /api/migrate/add-chat-features
+    // Run: GET /api/migrate/add-channels-support
+    if (process.env.NODE_ENV !== 'production') {
+      // Only sync in development
       return db.sync({ alter: true, force: false });
     }
   })
   .then(() => {
-    if (process.env.NODE_ENV === 'production') {
-      logger.info('Database tables synced');
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Development: Database tables synced');
+    } else {
+      logger.info('Production: Use migration endpoints to update database schema');
     }
   })
   .catch(err => logger.error('Database error:', err));
