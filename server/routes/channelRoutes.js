@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const channelController = require('../controllers/channelController');
-const { protect, restrictTo } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
 // All routes require authentication and admin/super_admin role
 router.use(protect);
-router.use(restrictTo('admin', 'super_admin'));
+router.use(authorize('admin', 'super_admin'));
 
 // Channel CRUD
 router.post('/', channelController.createChannel);
