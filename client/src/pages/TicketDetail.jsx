@@ -565,9 +565,13 @@ const TicketDetail = () => {
                 <div>
                   <p className="text-xs text-gray-500">Created By</p>
                   <p className="text-sm font-medium text-gray-900">
-                    {ticket.user?.first_name} {ticket.user?.last_name}
+                    {ticket.user 
+                      ? `${ticket.user.first_name} ${ticket.user.last_name}` 
+                      : 'Deleted User'}
                   </p>
-                  <p className="text-xs text-gray-500">{ticket.user?.email}</p>
+                  {ticket.user && (
+                    <p className="text-xs text-gray-500">{ticket.user.email}</p>
+                  )}
                 </div>
               </div>
 

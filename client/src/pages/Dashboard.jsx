@@ -108,7 +108,9 @@ const Dashboard = () => {
       <div className="space-y-1 text-xs text-gray-600">
         <div className="flex items-center gap-1">
           <User size={12} />
-          <span className="line-clamp-1">{ticket.user?.first_name} {ticket.user?.last_name}</span>
+          <span className="line-clamp-1">
+            {ticket.user ? `${ticket.user.first_name} ${ticket.user.last_name}` : 'Deleted User'}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <Building2 size={12} />

@@ -155,14 +155,29 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
+    // Store user info for logging before deletion
+    const deletedUserInfo = {
+      id: user.id,
+      email: user.email,
+      name: `${user.first_name} ${user.last_name}`,
+      role: user.role
+    };
+
+    // Check if user has tickets
+    const ticketCount = await Ticket.count({ where: { user_id: user.id } });
+    const assignedCount = await Ticket.count({ where: { assigned_to: user.id } });
+    
+    // Delete the user - tickets will be preserved with user_id set to NULL
     await user.destroy();
 
-    // Log user deletion
+    // Log user deletion with ticket information
     logger.warn('User deleted by admin', {
-      deletedUserId: user.id,
-      deletedUserEmail: user.email,
-      deletedUserName: `${user.first_name} ${user.last_name}`,
-      deletedUserRole: user.role,
+      deletedUserId: deletedUserInfo.id,
+      deletedUserEmail: deletedUserInfo.email,
+      deletedUserName: deletedUserInfo.name,
+      deletedUserRole: deletedUserInfo.role,
+      ticketsCreated: ticketCount,
+      ticketsAssigned: assignedCount,
       deletedBy: req.user.id,
       deletedByName: `${req.user.first_name} ${req.user.last_name}`,
       action: 'USER_DELETE'
@@ -170,7 +185,7 @@ exports.deleteUser = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'User deleted successfully'
+      message: `User deleted successfully. ${ticketCount} ticket(s) preserved in history.`
     });
   } catch (error) {
     console.error('Delete user error:', error);

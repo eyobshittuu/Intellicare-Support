@@ -56,11 +56,12 @@ const Ticket = sequelize.define('Ticket', {
   },
   user_id: {
     type: DataTypes.BIGINT.UNSIGNED,
-    allowNull: false,
+    allowNull: true,  // Allow null when user is deleted
     references: {
       model: 'users',
       key: 'id'
-    }
+    },
+    onDelete: 'SET NULL'
   },
   assigned_to: {
     type: DataTypes.BIGINT.UNSIGNED,
@@ -68,7 +69,8 @@ const Ticket = sequelize.define('Ticket', {
     references: {
       model: 'users',
       key: 'id'
-    }
+    },
+    onDelete: 'SET NULL'
   },
   started_at: {
     type: DataTypes.DATE,
@@ -88,7 +90,8 @@ const Ticket = sequelize.define('Ticket', {
     references: {
       model: 'users',
       key: 'id'
-    }
+    },
+    onDelete: 'SET NULL'
   },
   finalized_at: {
     type: DataTypes.DATE,
