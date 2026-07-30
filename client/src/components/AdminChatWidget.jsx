@@ -77,9 +77,14 @@ const AdminChatWidget = () => {
     if (!socket || !isOpen) return;
 
     socket.on('message:received', (message) => {
+      console.log('Message received:', message);
+      console.log('Selected channel:', selectedChannel);
+      console.log('Selected admin:', selectedAdmin);
+      
       // Direct message
       if (selectedAdmin && message.recipient_id && 
           (message.sender_id === selectedAdmin.id || message.recipient_id === selectedAdmin.id)) {
+        console.log('Adding direct message');
         setMessages(prev => [...prev, message]);
         
         if (message.recipient_id === user.id) {
@@ -88,7 +93,8 @@ const AdminChatWidget = () => {
       }
       
       // Channel message
-      if (selectedChannel && message.channel_id === selectedChannel.id) {
+      if (selectedChannel && message.channel_id && message.channel_id === selectedChannel.id) {
+        console.log('Adding channel message');
         setMessages(prev => [...prev, message]);
       }
     });
@@ -229,8 +235,13 @@ const AdminChatWidget = () => {
 
   const loadChannelMessages = async (channelId) => {
     try {
+      console.log('Loading channel messages for channel:', channelId);
       const response = await getChannelMessages(channelId);
-      setMessages(response.data);
+      console.log('Channel messages response:', response);
+      if (response.success && response.data) {
+        setMessages(response.data);
+        console.log('Set channel messages:', response.data);
+      }
     } catch (error) {
       console.error('Error loading channel messages:', error);
       toast.error('Failed to load messages');
