@@ -351,53 +351,54 @@ const FileViewer = ({ file, onClose }) => {
 
               {/* PDF Viewer */}
               {fileType === 'pdf' && (
-                <div className="flex h-full">
-                  {/* Thumbnails Sidebar */}
-                  {showThumbnails && (
-                    <div className="w-48 border-r border-gray-200 bg-gray-50 overflow-y-auto flex-shrink-0">
-                      <div className="p-2 space-y-2">
-                        {numPages && Array.from(new Array(numPages), (el, index) => (
-                          <div
-                            key={`thumb_${index + 1}`}
-                            onClick={() => handleThumbnailClick(index + 1)}
-                            className={`cursor-pointer border-2 rounded transition-all ${
-                              currentPage === index + 1
-                                ? 'border-teal-500 shadow-md'
-                                : 'border-gray-300 hover:border-teal-300'
-                            }`}
-                          >
-                            <Page
-                              pageNumber={index + 1}
-                              scale={0.2}
-                              renderTextLayer={false}
-                              renderAnnotationLayer={false}
-                            />
-                            <div className="text-center text-xs py-1 bg-white">
-                              {index + 1}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                <Document
+                  file={content}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  loading={
+                    <div className="flex items-center justify-center p-8">
+                      <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
                     </div>
-                  )}
+                  }
+                  error={
+                    <div className="text-red-600 p-4">
+                      Failed to load PDF. Please try downloading instead.
+                    </div>
+                  }
+                >
+                  <div className="flex h-full">
+                    {/* Thumbnails Sidebar */}
+                    {showThumbnails && numPages && (
+                      <div className="w-48 border-r border-gray-200 bg-gray-50 overflow-y-auto flex-shrink-0">
+                        <div className="p-2 space-y-2">
+                          {Array.from(new Array(numPages), (el, index) => (
+                            <div
+                              key={`thumb_${index + 1}`}
+                              onClick={() => handleThumbnailClick(index + 1)}
+                              className={`cursor-pointer border-2 rounded transition-all ${
+                                currentPage === index + 1
+                                  ? 'border-teal-500 shadow-md'
+                                  : 'border-gray-300 hover:border-teal-300'
+                              }`}
+                            >
+                              <Page
+                                pageNumber={index + 1}
+                                scale={0.2}
+                                renderTextLayer={false}
+                                renderAnnotationLayer={false}
+                                width={160}
+                              />
+                              <div className="text-center text-xs py-1 bg-white">
+                                {index + 1}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                  {/* Main PDF Content */}
-                  <div className="flex-1 overflow-y-auto">
-                    <div className="flex flex-col items-center space-y-4 p-4">
-                      <Document
-                        file={content}
-                        onLoadSuccess={onDocumentLoadSuccess}
-                        loading={
-                          <div className="flex items-center justify-center p-8">
-                            <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
-                          </div>
-                        }
-                        error={
-                          <div className="text-red-600 p-4">
-                            Failed to load PDF. Please try downloading instead.
-                          </div>
-                        }
-                      >
+                    {/* Main PDF Content */}
+                    <div className="flex-1 overflow-y-auto">
+                      <div className="flex flex-col items-center space-y-4 p-4">
                         {/* Render all pages vertically */}
                         {numPages && Array.from(new Array(numPages), (el, index) => (
                           <div 
@@ -421,10 +422,10 @@ const FileViewer = ({ file, onClose }) => {
                             </div>
                           </div>
                         ))}
-                      </Document>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Document>
               )}
 
               {/* Word Document Viewer */}
