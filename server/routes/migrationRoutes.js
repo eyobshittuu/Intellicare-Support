@@ -842,20 +842,37 @@ router.get('/add-username-field', async (req, res) => {
       await db.query(`
         DO $$ 
         BEGIN
-          -- Add username column
+          -- Add username column (nullable first)
           IF NOT EXISTS (
             SELECT 1 FROM information_schema.columns 
             WHERE table_name = 'users' AND column_name = 'username'
           ) THEN
-            ALTER TABLE users ADD COLUMN username VARCHAR(50) UNIQUE;
+            ALTER TABLE users ADD COLUMN username VARCHAR(50);
+            RAISE NOTICE 'Added username column';
             
-            -- Generate usernames for existing users from their email
-            UPDATE users SET username = LOWER(SPLIT_PART(email, '@', 1)) WHERE username IS NULL;
+            -- Generate unique usernames for existing users from their email
+            -- Add user ID to make them unique
+            UPDATE users 
+            SET username = LOWER(
+              REGEXP_REPLACE(
+                SPLIT_PART(email, '@', 1) || '_' || id,
+                '[^a-zA-Z0-9_]',
+                '_',
+                'g'
+              )
+            )
+            WHERE username IS NULL;
+            RAISE NOTICE 'Generated usernames for existing users';
+            
+            -- Now add the unique constraint
+            ALTER TABLE users ADD CONSTRAINT users_username_unique UNIQUE (username);
+            RAISE NOTICE 'Added unique constraint';
             
             -- Make username NOT NULL after populating
             ALTER TABLE users ALTER COLUMN username SET NOT NULL;
-            
-            RAISE NOTICE 'Added username column';
+            RAISE NOTICE 'Set username as NOT NULL';
+          ELSE
+            RAISE NOTICE 'Username column already exists';
           END IF;
         END $$;
       `);
@@ -867,17 +884,30 @@ router.get('/add-username-field', async (req, res) => {
         message: 'Migration completed successfully!',
         database: 'PostgreSQL',
         changes: 'Added username column to users table',
-        note: 'Usernames were auto-generated from emails for existing users. Users can update them.'
+        note: 'Usernames were auto-generated from emails for existing users. Format: email_prefix_userid (e.g., john_1)'
       });
 
     } else if (dialect === 'mysql') {
-      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(50) UNIQUE`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(50)`);
       
-      // Generate usernames for existing users
-      await db.query(`UPDATE users SET username = LOWER(SUBSTRING_INDEX(email, '@', 1)) WHERE username IS NULL`);
+      // Generate usernames for existing users with ID suffix
+      await db.query(`
+        UPDATE users 
+        SET username = LOWER(
+          CONCAT(
+            REGEXP_REPLACE(SUBSTRING_INDEX(email, '@', 1), '[^a-zA-Z0-9_]', '_'),
+            '_',
+            id
+          )
+        )
+        WHERE username IS NULL
+      `);
+      
+      // Add unique constraint
+      await db.query(`ALTER TABLE users ADD UNIQUE INDEX users_username_unique (username)`);
       
       // Make NOT NULL
-      await db.query(`ALTER TABLE users MODIFY username VARCHAR(50) NOT NULL UNIQUE`);
+      await db.query(`ALTER TABLE users MODIFY username VARCHAR(50) NOT NULL`);
 
       logger.info('✅ MySQL: Username field added successfully');
 
@@ -886,7 +916,7 @@ router.get('/add-username-field', async (req, res) => {
         message: 'Migration completed successfully!',
         database: 'MySQL',
         changes: 'Added username column to users table',
-        note: 'Usernames were auto-generated from emails for existing users. Users can update them.'
+        note: 'Usernames were auto-generated from emails for existing users. Format: email_prefix_userid'
       });
 
     } else {
@@ -898,6 +928,15 @@ router.get('/add-username-field', async (req, res) => {
 
   } catch (error) {
     logger.error('❌ Migration failed:', error);
+
+    // Check if column already exists
+    if (error.message && error.message.includes('already exists')) {
+      return res.json({
+        success: true,
+        message: 'Username column already exists',
+        note: 'No migration needed'
+      });
+    }
 
     return res.status(500).json({
       success: false,
