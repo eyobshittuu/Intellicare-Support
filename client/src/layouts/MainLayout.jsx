@@ -2,6 +2,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, FileText, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
+import AdminChatWidget from '../components/AdminChatWidget';
 
 const MainLayout = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -168,6 +169,9 @@ const MainLayout = () => {
           <Outlet />
         </div>
       </main>
+
+      {/* Admin Chat Widget - Only for admins and super admins */}
+      {isAdmin && <AdminChatWidget />}
     </div>
   );
 };
