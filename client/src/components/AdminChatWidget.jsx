@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Minimize2, Users } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
-import { getMessages, searchUsers } from '../services/chatService';
+import { getMessages } from '../services/chatService';
+import { userService } from '../services/userService';
 import { toast } from 'sonner';
 
 const AdminChatWidget = () => {
@@ -74,19 +75,31 @@ const AdminChatWidget = () => {
 
   const loadAdmins = async () => {
     try {
-      // Search for all admins and super admins
-      const response = await searchUsers('');
-      if (response.success) {
+      console.log('Loading admins...');
+      // Use userService to get all users
+      const response = await userService.getUsers();
+      console.log('Users response:', response);
+      
+      if (response.success && response.users) {
         // Filter to only show admins and super admins, exclude self
-        const adminUsers = response.data.filter(u => 
+        const adminUsers = response.users.filter(u => 
           (u.role === 'admin' || u.role === 'super_admin') && u.id !== user.id
         );
+        console.log('Filtered admins:', adminUsers);
         setAdmins(adminUsers);
+      } else {
+        console.error('Unexpected response format:', response);
+        toast.error('Failed to load admin list');
       }
     } catch (error) {
       console.error('Error loading admins:', error);
       toast.error('Failed to load admin list');
     }
+  };
+
+  const loadAdminsFromUserService = async () => {
+    // This function is no longer needed, kept for compatibility
+    await loadAdmins();
   };
 
   const loadMessages = async (adminId) => {
