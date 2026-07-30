@@ -164,14 +164,18 @@ const MainLayout = () => {
       {/* Main Content */}
       <main className={`pt-16 transition-all duration-300 ease-in-out ${
         sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'
-      }`}>
+      } lg:pr-96`}>
         <div className="px-4 sm:px-6 lg:px-8 py-8">
           <Outlet />
         </div>
       </main>
 
-      {/* Admin Chat Widget - Only for admins and super admins */}
-      {isAdmin && <AdminChatWidget />}
+      {/* Admin Chat Sidebar - Only for admins and super admins */}
+      {isAdmin && (
+        <div className="hidden lg:block fixed right-0 top-16 bottom-0 w-96 bg-white border-l border-gray-200 z-20 shadow-xl">
+          <AdminChatWidget />
+        </div>
+      )}
     </div>
   );
 };

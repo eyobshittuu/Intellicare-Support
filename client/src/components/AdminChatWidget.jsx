@@ -23,7 +23,6 @@ const REACTION_EMOJIS = ['👍', '❤️', '😊', '🎉', '👏', '🔥'];
 const AdminChatWidget = () => {
   const { socket, isConnected, onlineUsers } = useSocket();
   const { user } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [activeTab, setActiveTab] = useState('direct'); // 'direct' or 'channels'
   const [showUserList, setShowUserList] = useState(true);
@@ -55,11 +54,9 @@ const AdminChatWidget = () => {
 
   // Load admin list and channels
   useEffect(() => {
-    if (isOpen) {
-      loadAdmins();
-      loadChannels();
-    }
-  }, [isOpen]);
+    loadAdmins();
+    loadChannels();
+  }, []);
 
   // Load channels
   const loadChannels = async () => {
@@ -76,7 +73,7 @@ const AdminChatWidget = () => {
 
   // Setup socket listeners
   useEffect(() => {
-    if (!socket || !isOpen) return;
+    if (!socket) return;
 
     socket.on('message:received', (message) => {
       console.log('Message received:', message);
@@ -150,7 +147,7 @@ const AdminChatWidget = () => {
       socket.off('message:reaction');
       socket.off('user:status');
     };
-  }, [socket, isOpen, selectedAdmin, selectedChannel, user]);
+  }, [socket, selectedAdmin, selectedChannel, user]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -451,24 +448,10 @@ const AdminChatWidget = () => {
 
   return (
     <>
-      {/* Floating Button */}
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-teal-600 text-white rounded-full shadow-lg hover:bg-teal-700 transition-all hover:scale-110 z-50 flex items-center justify-center"
-          title="Admin Chat"
-        >
-          <MessageSquare size={24} />
-        </button>
-      )}
-
-      {/* Chat Widget */}
-      {isOpen && (
-        <div className={`fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 transition-all ${
-          isMinimized ? 'w-80 h-14' : 'w-96 h-[600px]'
-        } flex flex-col`}>
-          {/* Header */}
-          <div className="bg-teal-600 text-white p-4 rounded-t-lg flex items-center justify-between">
+      {/* Chat Widget - Always visible as sidebar */}
+      <div className="h-full flex flex-col bg-white">
+        {/* Header */}
+        <div className="bg-teal-600 text-white p-4 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2">
               <MessageSquare size={20} />
               <h3 className="font-semibold">
@@ -518,14 +501,9 @@ const AdminChatWidget = () => {
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
                 className="p-1 hover:bg-teal-700 rounded transition-colors"
+                title={isMinimized ? 'Expand' : 'Minimize'}
               >
                 <Minimize2 size={18} />
-              </button>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-teal-700 rounded transition-colors"
-              >
-                <X size={18} />
               </button>
             </div>
           </div>
@@ -937,6 +915,13 @@ const AdminChatWidget = () => {
             </>
           )}
         </div>
+
+      {/* File Viewer Modal */}
+      {viewingFile && (
+        <FileViewer
+          file={viewingFile}
+          onClose={() => setViewingFile(null)}
+        />
       )}
 
       {/* Create Channel Modal */}
@@ -1047,14 +1032,6 @@ const AdminChatWidget = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* File Viewer Modal */}
-      {viewingFile && (
-        <FileViewer
-          file={viewingFile}
-          onClose={() => setViewingFile(null)}
-        />
       )}
     </>
   );
