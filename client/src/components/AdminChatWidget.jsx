@@ -334,16 +334,8 @@ const AdminChatWidget = () => {
 
   // Get mentionable users (channel members or all admins)
   const getMentionableUsers = () => {
-    if (selectedChannel && selectedChannel.members) {
-      return selectedChannel.members
-        .filter(member => member.id !== user.id)
-        .map(member => ({
-          id: member.id,
-          name: `${member.first_name} ${member.last_name}`,
-          email: member.email
-        }));
-    }
-    
+    // For now, always use the admins list since we don't have full member data
+    // In the future, we could fetch channel members separately
     return admins.map(admin => ({
       id: admin.id,
       name: `${admin.first_name} ${admin.last_name}`,
