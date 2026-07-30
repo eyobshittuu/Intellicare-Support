@@ -405,14 +405,14 @@ const FileViewer = ({ file, onClose }) => {
                             id={`pdf-page-${index + 1}`}
                             className="mb-6 relative"
                           >
-                            <div className="shadow-lg inline-block">
+                            <div className="shadow-lg inline-block bg-white">
                               <Page
                                 pageNumber={index + 1}
                                 scale={scale}
                                 rotate={rotation}
-                                className="bg-white"
-                                renderTextLayer={true}
-                                renderAnnotationLayer={true}
+                                renderTextLayer={false}
+                                renderAnnotationLayer={false}
+                                className="pdf-page"
                               />
                             </div>
                             {/* Page number badge */}
