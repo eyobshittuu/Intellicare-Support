@@ -460,17 +460,20 @@ const TicketDetail = () => {
                     <ClipboardList className="inline mr-2" size={18} />
                     Admin Work Log
                   </button>
-                  <button
-                    onClick={() => setActiveTab('chat')}
-                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === 'chat'
-                        ? 'border-teal-600 text-teal-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <MessageSquare className="inline mr-2" size={18} />
-                    Chat with Admin
-                  </button>
+                  {/* Only show chat tab if admin is assigned to this ticket */}
+                  {ticket?.assigned_to === user.id && (
+                    <button
+                      onClick={() => setActiveTab('chat')}
+                      className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                        activeTab === 'chat'
+                          ? 'border-teal-600 text-teal-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <MessageSquare className="inline mr-2" size={18} />
+                      Chat with User
+                    </button>
+                  )}
                 </nav>
               </div>
             </div>
@@ -489,17 +492,20 @@ const TicketDetail = () => {
                     <FileText className="inline mr-2" size={18} />
                     Details
                   </button>
-                  <button
-                    onClick={() => setActiveTab('chat')}
-                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === 'chat'
-                        ? 'border-teal-600 text-teal-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <MessageSquare className="inline mr-2" size={18} />
-                    Chat with Support
-                  </button>
+                  {/* Only show chat tab if ticket is assigned */}
+                  {ticket?.assigned_to && (
+                    <button
+                      onClick={() => setActiveTab('chat')}
+                      className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                        activeTab === 'chat'
+                          ? 'border-teal-600 text-teal-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <MessageSquare className="inline mr-2" size={18} />
+                      Chat with Support
+                    </button>
+                  )}
                 </nav>
               </div>
             </div>
