@@ -257,91 +257,120 @@ class AdminPerformanceService {
   }
 
   async getAverageResponseTime(adminId, dateFilter) {
-    const dialect = Ticket.sequelize.getDialect();
-    
-    let timeDiffExpression;
-    if (dialect === 'postgres') {
-      // PostgreSQL: EXTRACT(EPOCH FROM (started_at - created_at)) / 60
-      timeDiffExpression = Ticket.sequelize.literal(
-        "EXTRACT(EPOCH FROM (started_at - created_at)) / 60"
-      );
-    } else {
-      // MySQL: TIMESTAMPDIFF(MINUTE, created_at, started_at)
-      timeDiffExpression = Ticket.sequelize.literal(
-        'TIMESTAMPDIFF(MINUTE, created_at, started_at)'
-      );
+    try {
+      const dialect = Ticket.sequelize.getDialect();
+      
+      let timeDiffExpression;
+      if (dialect === 'postgres') {
+        // PostgreSQL: EXTRACT(EPOCH FROM (started_at - created_at)) / 60
+        timeDiffExpression = Ticket.sequelize.literal(
+          "EXTRACT(EPOCH FROM (started_at - created_at)) / 60"
+        );
+      } else {
+        // MySQL: TIMESTAMPDIFF(MINUTE, created_at, started_at)
+        timeDiffExpression = Ticket.sequelize.literal(
+          'TIMESTAMPDIFF(MINUTE, created_at, started_at)'
+        );
+      }
+
+      const result = await Ticket.findOne({
+        attributes: [
+          [Ticket.sequelize.fn('AVG', timeDiffExpression), 'avg_minutes'],
+          [Ticket.sequelize.fn('MIN', timeDiffExpression), 'min_minutes'],
+          [Ticket.sequelize.fn('MAX', timeDiffExpression), 'max_minutes']
+        ],
+        where: {
+          assigned_to: adminId,
+          started_at: { [Op.ne]: null },
+          ...(dateFilter || {})
+        },
+        raw: true
+      });
+
+      const avgMinutes = parseFloat(result?.avg_minutes) || 0;
+      const minMinutes = parseFloat(result?.min_minutes) || 0;
+      const maxMinutes = parseFloat(result?.max_minutes) || 0;
+
+      return {
+        minutes: avgMinutes,
+        hours: (avgMinutes / 60).toFixed(2),
+        minMinutes,
+        maxMinutes,
+        formatted: this.formatTime(avgMinutes)
+      };
+    } catch (error) {
+      logger.error('Error getting average response time', {
+        adminId,
+        error: error.message
+      });
+      return {
+        minutes: 0,
+        hours: '0.00',
+        minMinutes: 0,
+        maxMinutes: 0,
+        formatted: '0 min'
+      };
     }
-
-    const result = await Ticket.findOne({
-      attributes: [
-        [Ticket.sequelize.fn('AVG', timeDiffExpression), 'avg_minutes'],
-        [Ticket.sequelize.fn('MIN', timeDiffExpression), 'min_minutes'],
-        [Ticket.sequelize.fn('MAX', timeDiffExpression), 'max_minutes']
-      ],
-      where: {
-        assigned_to: adminId,
-        started_at: { [Op.ne]: null },
-        ...(dateFilter || {})
-      },
-      raw: true
-    });
-
-    const avgMinutes = parseFloat(result?.avg_minutes) || 0;
-    const minMinutes = parseFloat(result?.min_minutes) || 0;
-    const maxMinutes = parseFloat(result?.max_minutes) || 0;
-
-    return {
-      minutes: avgMinutes,
-      hours: (avgMinutes / 60).toFixed(2),
-      minMinutes,
-      maxMinutes,
-      formatted: this.formatTime(avgMinutes)
-    };
   }
 
   async getAverageResolutionTime(adminId, dateFilter) {
-    const dialect = Ticket.sequelize.getDialect();
-    
-    let timeDiffExpression;
-    if (dialect === 'postgres') {
-      // PostgreSQL: EXTRACT(EPOCH FROM (resolved_at - created_at)) / 60
-      timeDiffExpression = Ticket.sequelize.literal(
-        "EXTRACT(EPOCH FROM (resolved_at - created_at)) / 60"
-      );
-    } else {
-      // MySQL: TIMESTAMPDIFF(MINUTE, created_at, resolved_at)
-      timeDiffExpression = Ticket.sequelize.literal(
-        'TIMESTAMPDIFF(MINUTE, created_at, resolved_at)'
-      );
+    try {
+      const dialect = Ticket.sequelize.getDialect();
+      
+      let timeDiffExpression;
+      if (dialect === 'postgres') {
+        // PostgreSQL: EXTRACT(EPOCH FROM (resolved_at - created_at)) / 60
+        timeDiffExpression = Ticket.sequelize.literal(
+          "EXTRACT(EPOCH FROM (resolved_at - created_at)) / 60"
+        );
+      } else {
+        // MySQL: TIMESTAMPDIFF(MINUTE, created_at, resolved_at)
+        timeDiffExpression = Ticket.sequelize.literal(
+          'TIMESTAMPDIFF(MINUTE, created_at, resolved_at)'
+        );
+      }
+
+      const result = await Ticket.findOne({
+        attributes: [
+          [Ticket.sequelize.fn('AVG', timeDiffExpression), 'avg_minutes'],
+          [Ticket.sequelize.fn('MIN', timeDiffExpression), 'min_minutes'],
+          [Ticket.sequelize.fn('MAX', timeDiffExpression), 'max_minutes']
+        ],
+        where: {
+          assigned_to: adminId,
+          status: 'completed',
+          resolved_at: { [Op.ne]: null },
+          ...(dateFilter || {})
+        },
+        raw: true
+      });
+
+      const avgMinutes = parseFloat(result?.avg_minutes) || 0;
+      const minMinutes = parseFloat(result?.min_minutes) || 0;
+      const maxMinutes = parseFloat(result?.max_minutes) || 0;
+
+      return {
+        minutes: avgMinutes,
+        hours: (avgMinutes / 60).toFixed(2),
+        days: (avgMinutes / 1440).toFixed(2),
+        minMinutes,
+        maxMinutes,
+        formatted: this.formatTime(avgMinutes)
+      };
+    } catch (error) {
+      logger.error('Error getting average resolution time', {
+        adminId,
+        error: error.message
+      });
+      return {
+        minutes: 0,
+        hours: '0.00',
+        days: '0.00',
+        minMinutes: 0,
+        maxMinutes: 0,
+        formatted: '0 min'
+      };
     }
-
-    const result = await Ticket.findOne({
-      attributes: [
-        [Ticket.sequelize.fn('AVG', timeDiffExpression), 'avg_minutes'],
-        [Ticket.sequelize.fn('MIN', timeDiffExpression), 'min_minutes'],
-        [Ticket.sequelize.fn('MAX', timeDiffExpression), 'max_minutes']
-      ],
-      where: {
-        assigned_to: adminId,
-        status: 'completed',
-        resolved_at: { [Op.ne]: null },
-        ...(dateFilter || {})
-      },
-      raw: true
-    });
-
-    const avgMinutes = parseFloat(result?.avg_minutes) || 0;
-    const minMinutes = parseFloat(result?.min_minutes) || 0;
-    const maxMinutes = parseFloat(result?.max_minutes) || 0;
-
-    return {
-      minutes: avgMinutes,
-      hours: (avgMinutes / 60).toFixed(2),
-      days: (avgMinutes / 1440).toFixed(2),
-      minMinutes,
-      maxMinutes,
-      formatted: this.formatTime(avgMinutes)
-    };
   }
 
   async getQualityMetrics(adminId, dateFilter) {
@@ -376,34 +405,42 @@ class AdminPerformanceService {
   }
 
   async calculateQualityScore(adminId, dateFilter) {
-    const [stats, responseTime, resolutionTime] = await Promise.all([
-      this.getTicketStats(adminId, dateFilter),
-      this.getAverageResponseTime(adminId, dateFilter),
-      this.getAverageResolutionTime(adminId, dateFilter)
-    ]);
+    try {
+      const [stats, responseTime, resolutionTime] = await Promise.all([
+        this.getTicketStats(adminId, dateFilter),
+        this.getAverageResponseTime(adminId, dateFilter),
+        this.getAverageResolutionTime(adminId, dateFilter)
+      ]);
 
-    if (stats.total === 0) return 0;
+      if (stats.total === 0) return 0;
 
-    let score = 0;
+      let score = 0;
 
-    // Completion rate (40 points max)
-    score += parseFloat(stats.completionRate) * 0.4;
+      // Completion rate (40 points max)
+      score += parseFloat(stats.completionRate) * 0.4;
 
-    // Response time (30 points max) - faster is better
-    const responseHours = parseFloat(responseTime.hours) || 0;
-    if (responseHours > 0) {
-      const responseScore = Math.max(0, 30 - (responseHours * 2));
-      score += Math.min(30, responseScore);
+      // Response time (30 points max) - faster is better
+      const responseHours = parseFloat(responseTime.hours) || 0;
+      if (responseHours > 0) {
+        const responseScore = Math.max(0, 30 - (responseHours * 2));
+        score += Math.min(30, responseScore);
+      }
+
+      // Resolution time (30 points max) - faster is better
+      const resolutionHours = parseFloat(resolutionTime.hours) || 0;
+      if (resolutionHours > 0) {
+        const resolutionScore = Math.max(0, 30 - (resolutionHours / 2));
+        score += Math.min(30, resolutionScore);
+      }
+
+      return Math.round(Math.min(100, score));
+    } catch (error) {
+      logger.error('Error calculating quality score', {
+        adminId,
+        error: error.message
+      });
+      return 0;
     }
-
-    // Resolution time (30 points max) - faster is better
-    const resolutionHours = parseFloat(resolutionTime.hours) || 0;
-    if (resolutionHours > 0) {
-      const resolutionScore = Math.max(0, 30 - (resolutionHours / 2));
-      score += Math.min(30, resolutionScore);
-    }
-
-    return Math.round(Math.min(100, score));
   }
 
   calculateGrade(score) {
