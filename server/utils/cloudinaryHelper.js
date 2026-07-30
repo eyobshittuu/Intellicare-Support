@@ -1,16 +1,16 @@
 const cloudinary = require('cloudinary').v2;
 
 /**
- * Extract public_id from Cloudinary URL
+ * Extract public_id from Cloudinary URL (keep extension)
  */
 function extractPublicIdFromUrl(url) {
   try {
     // URL format: https://res.cloudinary.com/{cloud}/raw/upload/v{version}/{folder}/{public_id}.{ext}
+    // or: https://res.cloudinary.com/{cloud}/image/upload/v{version}/{folder}/{public_id}.{ext}
     const matches = url.match(/\/v\d+\/(.+)$/);
     if (matches && matches[1]) {
-      // Remove file extension
-      const withoutExt = matches[1].replace(/\.[^.]+$/, '');
-      return withoutExt;
+      // Keep the full path including extension
+      return matches[1];
     }
     return null;
   } catch (error) {
@@ -20,10 +20,20 @@ function extractPublicIdFromUrl(url) {
 }
 
 /**
+ * Determine resource type from URL
+ */
+function getResourceTypeFromUrl(url) {
+  if (url.includes('/image/upload/')) return 'image';
+  if (url.includes('/raw/upload/')) return 'raw';
+  if (url.includes('/video/upload/')) return 'video';
+  return 'auto';
+}
+
+/**
  * Generate a signed URL for Cloudinary resources
  * This is needed for raw files (PDFs, Word, Excel, etc.) to be publicly accessible
  */
-function generateSignedUrl(publicId, resourceType = 'raw') {
+function generateSignedUrl(publicId, resourceType = 'auto') {
   try {
     console.log('Generating signed URL for:', { publicId, resourceType });
     
@@ -72,12 +82,17 @@ function getPublicUrl(file) {
       return file.path;
     }
     
-    return generateSignedUrl(publicId, 'raw');
+    // Detect resource type from URL
+    const resourceType = getResourceTypeFromUrl(file.path);
+    console.log('Detected resource type:', resourceType);
+    
+    return generateSignedUrl(publicId, resourceType);
   }
 }
 
 module.exports = {
   generateSignedUrl,
   getPublicUrl,
-  extractPublicIdFromUrl
+  extractPublicIdFromUrl,
+  getResourceTypeFromUrl
 };
