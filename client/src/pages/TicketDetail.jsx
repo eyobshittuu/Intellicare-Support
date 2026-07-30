@@ -242,7 +242,7 @@ const TicketDetail = () => {
             {isSuperAdmin && !ticket.assigned_to && (
               <button
                 onClick={() => setShowAssignModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
               >
                 <UserPlus size={18} />
                 Assign to Admin
@@ -766,7 +766,7 @@ const TicketDetail = () => {
       {showAssignModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Assign Ticket to Admin</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Assign Ticket to Admin</h2>
             <p className="text-sm text-gray-600 mb-6">
               Select an admin and set the difficulty level for this ticket.
             </p>
@@ -779,7 +779,7 @@ const TicketDetail = () => {
               <select
                 value={selectedAdmin}
                 onChange={(e) => setSelectedAdmin(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="">-- Choose an admin --</option>
                 {admins.map((admin) => (
@@ -799,10 +799,10 @@ const TicketDetail = () => {
                 {[1, 2, 3, 4, 5].map((level) => (
                   <label
                     key={level}
-                    className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    className={`flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
                       difficulty === level
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-teal-500 bg-teal-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
                     <input
@@ -811,18 +811,18 @@ const TicketDetail = () => {
                       value={level}
                       checked={difficulty === level}
                       onChange={(e) => setDifficulty(Number(e.target.value))}
-                      className="mt-1"
+                      className="mt-0.5 text-teal-600 focus:ring-teal-500"
                     />
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`font-bold text-lg ${difficultyLabels[level].color}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold ${difficultyLabels[level].color}`}>
                           {level}
                         </span>
                         <span className="font-semibold text-gray-900">
                           {difficultyLabels[level].label}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 mt-1">
                         {difficultyLabels[level].desc}
                       </p>
                     </div>
@@ -836,7 +836,7 @@ const TicketDetail = () => {
               <button
                 onClick={handleAssignTicket}
                 disabled={updating || !selectedAdmin}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
               >
                 {updating ? (
                   <>
@@ -857,7 +857,7 @@ const TicketDetail = () => {
                   setDifficulty(3);
                 }}
                 disabled={updating}
-                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium"
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium transition-colors"
               >
                 Cancel
               </button>
