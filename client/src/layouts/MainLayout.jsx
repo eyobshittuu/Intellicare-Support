@@ -22,7 +22,7 @@ const MainLayout = () => {
     ...(isAdmin ? [{ name: 'Users', href: '/users', icon: Users }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Performance', href: '/performance', icon: TrendingUp }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'System Logs', href: '/system-logs', icon: FileText }] : []),
-    ...(!isAdmin ? [{ name: 'Profile', href: '/profile', icon: User }] : []),
+    { name: 'Profile', href: '/profile', icon: User },
   ];
 
   const isActive = (href) => {
