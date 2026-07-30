@@ -11,7 +11,21 @@ The production PostgreSQL database still has `user_id` as NOT NULL, even though 
 
 ## Solution: Run Database Migration on Render
 
-### Option 1: Using Render Shell (Recommended)
+### Option 1: Using Browser (Easiest - No Shell Needed!)
+
+**Just click this link in your browser:**
+
+🔗 **https://intellicare-support-1.onrender.com/api/migrate/fix-user-id**
+
+That's it! The migration will run automatically and you'll see a success message in your browser.
+
+**To check if migration is complete:**
+
+🔗 **https://intellicare-support-1.onrender.com/api/migrate/status**
+
+---
+
+### Option 2: Using Render Shell
 
 1. **Go to your Render Dashboard**
    - Navigate to: https://dashboard.render.com
@@ -42,7 +56,7 @@ The production PostgreSQL database still has `user_id` as NOT NULL, even though 
 
 ---
 
-### Option 2: Using Node.js Migration Script
+### Option 3: Using Node.js Migration Script
 
 If you prefer using Node.js:
 
@@ -56,7 +70,7 @@ If you prefer using Node.js:
 
 ---
 
-### Option 3: Using SQL File
+### Option 4: Using SQL File
 
 1. **In Render Shell**, run:
    ```bash
@@ -89,7 +103,16 @@ Once the migration is complete:
 
 ## Quick Command (Copy & Paste)
 
-Just copy and paste this into Render Shell:
+**Option A: Browser (Easiest)**
+
+Just open this URL in any browser:
+```
+https://intellicare-support-1.onrender.com/api/migrate/fix-user-id
+```
+
+**Option B: Render Shell**
+
+If shell is working, copy and paste this:
 
 ```bash
 psql $DATABASE_URL -c "ALTER TABLE tickets ALTER COLUMN user_id DROP NOT NULL; SELECT 'Migration completed!' as status;"

@@ -13,6 +13,7 @@ const ticketRoutes = require('./routes/ticketRoutes');
 const setupRoutes = require('./routes/setupRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const logsRoutes = require('./routes/logsRoutes');
+const migrationRoutes = require('./routes/migrationRoutes');
 const chatHandler = require('./socket/chatHandler');
 
 const app = express();
@@ -90,6 +91,7 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/setup', setupRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/logs', logsRoutes);
+app.use('/api/migrate', migrationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
