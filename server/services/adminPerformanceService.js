@@ -391,18 +391,32 @@ class AdminPerformanceService {
 
     const avgResolution = await this.getAverageResolutionTime(adminId, dateFilter);
     
-    // Get difficulty score sum
-    const difficultyResult = await Ticket.findOne({
-      attributes: [
-        [Ticket.sequelize.fn('SUM', Ticket.sequelize.col('difficulty')), 'total_difficulty'],
-        [Ticket.sequelize.fn('AVG', Ticket.sequelize.col('difficulty')), 'avg_difficulty']
-      ],
-      where: {
-        ...whereClause,
-        difficulty: { [Op.ne]: null }
-      },
-      raw: true
-    });
+    // Get difficulty score sum - wrapped in try-catch for backward compatibility
+    let totalDifficultyScore = 0;
+    let avgDifficulty = 0;
+    
+    try {
+      const difficultyResult = await Ticket.findOne({
+        attributes: [
+          [Ticket.sequelize.fn('SUM', Ticket.sequelize.col('difficulty')), 'total_difficulty'],
+          [Ticket.sequelize.fn('AVG', Ticket.sequelize.col('difficulty')), 'avg_difficulty']
+        ],
+        where: {
+          ...whereClause,
+          difficulty: { [Op.ne]: null }
+        },
+        raw: true
+      });
+      
+      totalDifficultyScore = parseInt(difficultyResult?.total_difficulty) || 0;
+      avgDifficulty = parseFloat(difficultyResult?.avg_difficulty) || 0;
+    } catch (error) {
+      // Difficulty column might not exist yet - gracefully handle
+      logger.warn('Could not fetch difficulty metrics (column may not exist yet)', {
+        adminId,
+        error: error.message
+      });
+    }
 
     return {
       totalAssigned,
@@ -411,8 +425,8 @@ class AdminPerformanceService {
       finalizationRate: totalAssigned > 0 ? ((finalized / totalAssigned) * 100).toFixed(2) : 0,
       rejectionRate: totalAssigned > 0 ? ((rejected / totalAssigned) * 100).toFixed(2) : 0,
       avgResolutionHours: avgResolution.hours,
-      totalDifficultyScore: parseInt(difficultyResult?.total_difficulty) || 0,
-      avgDifficulty: parseFloat(difficultyResult?.avg_difficulty)?.toFixed(2) || 0
+      totalDifficultyScore,
+      avgDifficulty: avgDifficulty > 0 ? avgDifficulty.toFixed(2) : 0
     };
   }
 
@@ -455,13 +469,19 @@ class AdminPerformanceService {
         // Score based on average difficulty (max 5.0) scaled to 30 points
         const difficultyScore = (avgDifficulty / 5.0) * 30;
         score += Math.min(30, difficultyScore);
+      } else if (stats.total > 0) {
+        // If no difficulty scores are available, redistribute those 30 points
+        // Give bonus points based on completion metrics to avoid penalizing old data
+        const bonusScore = (parseFloat(stats.completionRate) / 100) * 15;
+        score += bonusScore;
       }
 
       return Math.round(Math.min(100, score));
     } catch (error) {
       logger.error('Error calculating quality score', {
         adminId,
-        error: error.message
+        error: error.message,
+        stack: error.stack
       });
       return 0;
     }

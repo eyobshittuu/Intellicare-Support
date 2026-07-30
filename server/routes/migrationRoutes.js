@@ -170,6 +170,152 @@ router.get('/diagnose', async (req, res) => {
 });
 
 /**
+ * DIFFICULTY SYSTEM MIGRATION
+ * 
+ * Add difficulty, assigned_by, and assigned_at columns to tickets table
+ * GET https://intellicare-support-1.onrender.com/api/migrate/add-difficulty-fields
+ */
+router.get('/add-difficulty-fields', async (req, res) => {
+  try {
+    logger.info('🔄 Starting migration: Add difficulty fields to tickets table');
+
+    const dialect = db.getDialect();
+    
+    if (dialect === 'postgres') {
+      // PostgreSQL - Add columns if they don't exist
+      await db.query(`
+        DO $$ 
+        BEGIN
+          -- Add difficulty column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'tickets' AND column_name = 'difficulty'
+          ) THEN
+            ALTER TABLE tickets ADD COLUMN difficulty INTEGER DEFAULT NULL;
+            ALTER TABLE tickets ADD CONSTRAINT tickets_difficulty_check 
+              CHECK (difficulty IS NULL OR (difficulty >= 1 AND difficulty <= 5));
+            RAISE NOTICE 'Added difficulty column';
+          END IF;
+
+          -- Add assigned_by column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'tickets' AND column_name = 'assigned_by'
+          ) THEN
+            ALTER TABLE tickets ADD COLUMN assigned_by BIGINT DEFAULT NULL;
+            ALTER TABLE tickets ADD CONSTRAINT fk_tickets_assigned_by 
+              FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL;
+            RAISE NOTICE 'Added assigned_by column';
+          END IF;
+
+          -- Add assigned_at column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'tickets' AND column_name = 'assigned_at'
+          ) THEN
+            ALTER TABLE tickets ADD COLUMN assigned_at TIMESTAMP DEFAULT NULL;
+            RAISE NOTICE 'Added assigned_at column';
+          END IF;
+        END $$;
+      `);
+      
+      logger.info('✅ PostgreSQL: Difficulty fields added successfully');
+      
+      // Verify the changes
+      const [results] = await db.query(`
+        SELECT column_name, is_nullable, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'tickets' 
+        AND column_name IN ('difficulty', 'assigned_by', 'assigned_at')
+        ORDER BY column_name;
+      `);
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'PostgreSQL',
+        changes: 'Added difficulty, assigned_by, and assigned_at columns',
+        columns: results,
+        note: 'Manual ticket assignment with difficulty rating is now available.'
+      });
+
+    } else if (dialect === 'mysql') {
+      // MySQL - Add columns if they don't exist
+      const queries = [
+        `ALTER TABLE tickets ADD COLUMN IF NOT EXISTS difficulty INT DEFAULT NULL`,
+        `ALTER TABLE tickets ADD COLUMN IF NOT EXISTS assigned_by BIGINT UNSIGNED DEFAULT NULL`,
+        `ALTER TABLE tickets ADD COLUMN IF NOT EXISTS assigned_at DATETIME DEFAULT NULL`
+      ];
+
+      for (const query of queries) {
+        try {
+          await db.query(query);
+        } catch (err) {
+          // Column might already exist, continue
+          if (!err.message.includes('Duplicate column')) {
+            throw err;
+          }
+        }
+      }
+
+      // Add constraints
+      try {
+        await db.query(`
+          ALTER TABLE tickets 
+          ADD CONSTRAINT tickets_difficulty_check 
+          CHECK (difficulty IS NULL OR (difficulty BETWEEN 1 AND 5))
+        `);
+      } catch (err) {
+        // Constraint might already exist
+        if (!err.message.includes('Duplicate')) {
+          logger.warn('Could not add difficulty check constraint:', err.message);
+        }
+      }
+
+      try {
+        await db.query(`
+          ALTER TABLE tickets 
+          ADD CONSTRAINT fk_tickets_assigned_by 
+          FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL
+        `);
+      } catch (err) {
+        // Constraint might already exist
+        if (!err.message.includes('Duplicate')) {
+          logger.warn('Could not add assigned_by foreign key:', err.message);
+        }
+      }
+
+      logger.info('✅ MySQL: Difficulty fields added successfully');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'MySQL',
+        changes: 'Added difficulty, assigned_by, and assigned_at columns',
+        note: 'Manual ticket assignment with difficulty rating is now available.'
+      });
+
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported database dialect: ${dialect}`
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Migration failed:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message,
+      hint: 'Check server logs for more details. Columns might already exist.',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
  * CHECK MIGRATION STATUS
  * 
  * Check if the migration has been applied
@@ -188,20 +334,30 @@ router.get('/status', async (req, res) => {
           column_default
         FROM information_schema.columns 
         WHERE table_name = 'tickets' 
-        AND column_name IN ('user_id', 'assigned_to', 'finalized_by')
+        AND column_name IN ('user_id', 'assigned_to', 'finalized_by', 'difficulty', 'assigned_by', 'assigned_at')
         ORDER BY column_name;
       `);
 
-      const allNullable = results.every(col => col.is_nullable === 'YES');
+      const userIdNullable = results.find(col => col.column_name === 'user_id')?.is_nullable === 'YES';
+      const hasDifficultyFields = results.some(col => col.column_name === 'difficulty');
 
       return res.json({
         success: true,
         database: 'PostgreSQL',
         columns: results,
-        migrationComplete: allNullable,
-        message: allNullable 
-          ? '✅ All user reference columns are nullable. Migration complete!' 
-          : '⚠️ Some columns are NOT NULL. Migration needed.'
+        migrations: {
+          userIdNullable: {
+            complete: userIdNullable,
+            status: userIdNullable ? '✅ Complete' : '⚠️ Needed'
+          },
+          difficultySystem: {
+            complete: hasDifficultyFields,
+            status: hasDifficultyFields ? '✅ Complete' : '⚠️ Needed'
+          }
+        },
+        message: userIdNullable && hasDifficultyFields
+          ? '✅ All migrations complete!' 
+          : '⚠️ Some migrations are pending.'
       });
 
     } else {
