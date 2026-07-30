@@ -5,8 +5,15 @@ import { authService } from '../services/authService';
 import { toast } from 'sonner';
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profileData, setProfileData] = useState({
+    username: user?.username || '',
+    first_name: user?.first_name || '',
+    middle_name: user?.middle_name || '',
+    last_name: user?.last_name || ''
+  });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -18,6 +25,7 @@ const Profile = () => {
     confirm: false
   });
   const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -50,6 +58,60 @@ const Profile = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmitProfileUpdate = async (e) => {
+    e.preventDefault();
+
+    // Validate username
+    if (profileData.username) {
+      if (profileData.username.length < 3 || profileData.username.length > 50) {
+        toast.error('Username must be between 3 and 50 characters');
+        return;
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(profileData.username)) {
+        toast.error('Username can only contain letters, numbers, and underscores');
+        return;
+      }
+    }
+
+    if (!profileData.first_name.trim()) {
+      toast.error('First name is required');
+      return;
+    }
+
+    if (!profileData.last_name.trim()) {
+      toast.error('Last name is required');
+      return;
+    }
+
+    setProfileLoading(true);
+
+    try {
+      const response = await authService.updateProfile(profileData);
+      
+      // Update user context
+      if (updateUser && response.user) {
+        updateUser(response.user);
+      }
+
+      toast.success('Profile updated successfully!');
+      setShowEditProfile(false);
+    } catch (error) {
+      console.error('Profile update error:', error);
+      const message = error.response?.data?.message || 'Failed to update profile';
+      toast.error(message);
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   const togglePasswordVisibility = (field) => {
@@ -212,6 +274,18 @@ const Profile = () => {
                   </span>
                   <p className="font-medium text-gray-900 mt-1">{user?.email}</p>
                 </div>
+
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <span className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                    <User size={12} />
+                    Username
+                  </span>
+                  <p className="font-medium text-gray-900 mt-1">
+                    {user?.username ? `@${user.username}` : (
+                      <span className="text-gray-400 italic">Not set</span>
+                    )}
+                  </p>
+                </div>
                 
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <span className="text-xs text-gray-500 uppercase tracking-wide">User ID</span>
@@ -242,6 +316,133 @@ const Profile = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Edit Profile Section */}
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div 
+          className="p-6 cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-between"
+          onClick={() => setShowEditProfile(!showEditProfile)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
+              <User size={20} className="text-teal-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Edit Profile</h3>
+              <p className="text-sm text-gray-600">Update your profile information</p>
+            </div>
+          </div>
+          <div className={`transform transition-transform ${showEditProfile ? 'rotate-180' : ''}`}>
+            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        {showEditProfile && (
+          <div className="px-6 pb-6 border-t border-gray-100">
+            <form onSubmit={handleSubmitProfileUpdate} className="space-y-6 mt-6">
+              {/* Username */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Username *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">@</span>
+                  <input
+                    type="text"
+                    name="username"
+                    value={profileData.username}
+                    onChange={handleProfileChange}
+                    minLength="3"
+                    maxLength="50"
+                    pattern="[a-zA-Z0-9_]+"
+                    className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    placeholder="john_doe"
+                    required
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Only letters, numbers, and underscores (3-50 characters). This will be used in @mentions.
+                </p>
+              </div>
+
+              {/* First Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  name="first_name"
+                  value={profileData.first_name}
+                  onChange={handleProfileChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="John"
+                  required
+                />
+              </div>
+
+              {/* Middle Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Middle Name
+                </label>
+                <input
+                  type="text"
+                  name="middle_name"
+                  value={profileData.middle_name}
+                  onChange={handleProfileChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="M."
+                />
+              </div>
+
+              {/* Last Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  name="last_name"
+                  value={profileData.last_name}
+                  onChange={handleProfileChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Doe"
+                  required
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={profileLoading}
+                  className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {profileLoading ? 'Updating...' : 'Update Profile'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditProfile(false);
+                    setProfileData({
+                      username: user?.username || '',
+                      first_name: user?.first_name || '',
+                      middle_name: user?.middle_name || '',
+                      last_name: user?.last_name || ''
+                    });
+                  }}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Change Password Section */}

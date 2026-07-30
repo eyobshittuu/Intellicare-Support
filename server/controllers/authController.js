@@ -224,9 +224,45 @@ exports.getMe = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
   try {
-    const { first_name, middle_name, last_name } = req.body;
+    const { first_name, middle_name, last_name, username } = req.body;
 
     const user = await User.findByPk(req.user.id);
+
+    // Validate username if provided
+    if (username) {
+      if (username.length < 3 || username.length > 50) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username must be between 3 and 50 characters'
+        });
+      }
+      
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username can only contain letters, numbers, and underscores'
+        });
+      }
+
+      // Check if username is taken by another user
+      if (username !== user.username) {
+        const usernameExists = await User.findOne({ 
+          where: { 
+            username,
+            id: { [require('sequelize').Op.ne]: req.user.id }
+          } 
+        });
+        
+        if (usernameExists) {
+          return res.status(400).json({
+            success: false,
+            message: 'Username already taken'
+          });
+        }
+        
+        user.username = username;
+      }
+    }
 
     if (first_name) user.first_name = first_name;
     if (middle_name !== undefined) user.middle_name = middle_name;
@@ -238,6 +274,7 @@ exports.updateProfile = async (req, res) => {
     logger.info('User profile updated', {
       userId: user.id,
       email: user.email,
+      username: user.username,
       name: `${user.first_name} ${user.last_name}`,
       action: 'PROFILE_UPDATE'
     });
