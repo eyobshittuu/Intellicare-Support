@@ -12,6 +12,7 @@ import CreateTicket from './pages/CreateTicket'
 import Users from './pages/admin/Users'
 import CreateAdmin from './pages/admin/CreateAdmin'
 import SystemLogs from './pages/admin/SystemLogs'
+import Performance from './pages/admin/Performance'
 import Profile from './pages/Profile'
 import Chat from './pages/Chat'
 
@@ -99,6 +100,14 @@ function App() {
               element={
                 <ProtectedRoute superAdminOnly>
                   <CreateAdmin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/performance"
+              element={
+                <ProtectedRoute superAdminOnly>
+                  <Performance />
                 </ProtectedRoute>
               }
             />

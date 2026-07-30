@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, MessageSquare, FileText } from 'lucide-react';
+import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, MessageSquare, FileText, TrendingUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { getUnreadCount } from '../services/chatService';
 import { useSocket } from '../context/SocketContext';
@@ -51,6 +51,7 @@ const MainLayout = () => {
     { name: 'Tickets', href: '/tickets', icon: Ticket },
     { name: 'Messages', href: '/chat', icon: MessageSquare, badge: unreadCount },
     ...(isAdmin ? [{ name: 'Users', href: '/users', icon: Users }] : []),
+    ...(user?.role === 'super_admin' ? [{ name: 'Performance', href: '/performance', icon: TrendingUp }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'System Logs', href: '/system-logs', icon: FileText }] : []),
     ...(!isAdmin ? [{ name: 'Profile', href: '/profile', icon: User }] : []),
   ];
