@@ -315,20 +315,8 @@ const AdminChatWidget = () => {
     setNewMessage('');
     setSelectedFile(null);
   };
-      recipient_id: selectedAdmin.id,
-      content: newMessage.trim() || null,
-      attachments: attachmentData ? [attachmentData] : null,
-      message_type: messageType
-    });
 
-    setNewMessage('');
-    setSelectedFile(null);
-    
-    // Stop typing indicator
-    socket.emit('typing:stop', { recipient_id: selectedAdmin.id });
-  };
-
-  const handleTyping = (e) => {
+  const handleTyping = (e) => {  const handleTyping = (e) => {
     setNewMessage(e.target.value);
 
     if (!socket) return;
