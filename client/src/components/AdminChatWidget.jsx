@@ -76,8 +76,8 @@ const AdminChatWidget = () => {
   const loadAdmins = async () => {
     try {
       console.log('Loading admins...');
-      // Use userService to get all users
-      const response = await userService.getUsers();
+      // Use userService to get all users with high limit to get all admins
+      const response = await userService.getUsers({ limit: 1000 }); // Set high limit to get all
       console.log('Users response:', response);
       
       if (response.success && response.users) {
@@ -85,6 +85,7 @@ const AdminChatWidget = () => {
         const adminUsers = response.users.filter(u => 
           (u.role === 'admin' || u.role === 'super_admin') && u.id !== user.id
         );
+        console.log(`Found ${adminUsers.length} admins (excluding self)`);
         console.log('Filtered admins:', adminUsers);
         setAdmins(adminUsers);
       } else {
