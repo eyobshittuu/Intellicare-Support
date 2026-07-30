@@ -6,6 +6,7 @@ import { getMessages } from '../services/chatService';
 import { userService } from '../services/userService';
 import { uploadChatFile } from '../services/chatFileService';
 import { getUserChannels, getChannelMessages, createChannel, addChannelMembers } from '../services/channelService';
+import FileViewer from './FileViewer';
 import { toast } from 'sonner';
 
 // Status options
@@ -45,6 +46,7 @@ const AdminChatWidget = () => {
   const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
   const [showAddMembersModal, setShowAddMembersModal] = useState(false);
   const [channelForm, setChannelForm] = useState({ name: '', description: '', channel_type: 'private', member_ids: [] });
+  const [viewingFile, setViewingFile] = useState(null);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -729,25 +731,29 @@ const AdminChatWidget = () => {
                                     {message.attachments.map((attachment, idx) => (
                                       <div key={idx}>
                                         {message.message_type === 'image' ? (
-                                          <a 
-                                            href={attachment.url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="block"
+                                          <div
+                                            onClick={() => setViewingFile({
+                                              url: attachment.url,
+                                              originalName: attachment.originalName,
+                                              size: attachment.size
+                                            })}
+                                            className="block cursor-pointer"
                                           >
                                             <img 
                                               src={attachment.url} 
                                               alt={attachment.originalName}
-                                              className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                              className="max-w-full rounded-lg hover:opacity-90 transition-opacity"
                                               style={{ maxHeight: '200px' }}
                                             />
-                                          </a>
+                                          </div>
                                         ) : (
-                                          <a
-                                            href={attachment.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={`flex items-center gap-2 p-2 rounded ${
+                                          <div
+                                            onClick={() => setViewingFile({
+                                              url: attachment.url,
+                                              originalName: attachment.originalName,
+                                              size: attachment.size
+                                            })}
+                                            className={`flex items-center gap-2 p-2 rounded cursor-pointer ${
                                               isSent ? 'bg-teal-600' : 'bg-gray-100'
                                             } hover:opacity-90 transition-opacity`}
                                           >
@@ -757,7 +763,7 @@ const AdminChatWidget = () => {
                                               <p className="text-xs opacity-75">{formatFileSize(attachment.size)}</p>
                                             </div>
                                             <Download size={16} />
-                                          </a>
+                                          </div>
                                         )}
                                       </div>
                                     ))}
@@ -1041,6 +1047,14 @@ const AdminChatWidget = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* File Viewer Modal */}
+      {viewingFile && (
+        <FileViewer
+          file={viewingFile}
+          onClose={() => setViewingFile(null)}
+        />
       )}
     </>
   );
