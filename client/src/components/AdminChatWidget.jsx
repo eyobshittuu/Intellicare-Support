@@ -1,25 +1,55 @@
 import { useState, useEffect, useRef } from 'react';
-import { MessageSquare, X, Send, Minimize2, Users } from 'lucide-react';
+import { MessageSquare, X, Send, Minimize2, Users, Paperclip, Image as ImageIcon, File, Smile, Download, ChevronDown, Plus, Hash, UserPlus, Settings } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { getMessages } from '../services/chatService';
 import { userService } from '../services/userService';
+import { uploadChatFile } from '../services/chatFileService';
+import { getUserChannels, getChannelMessages, createChannel, addChannelMembers } from '../services/channelService';
 import { toast } from 'sonner';
+
+// Status options
+const STATUS_OPTIONS = [
+  { value: 'available', label: 'Available', color: 'bg-green-500' },
+  { value: 'busy', label: 'Busy', color: 'bg-red-500' },
+  { value: 'away', label: 'Away', color: 'bg-yellow-500' },
+  { value: 'offline', label: 'Offline', color: 'bg-gray-400' },
+];
+
+// Common emojis for reactions
+const REACTION_EMOJIS = ['👍', '❤️', '😊', '🎉', '👏', '🔥'];
 
 const AdminChatWidget = () => {
   const { socket, isConnected, onlineUsers } = useSocket();
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [activeTab, setActiveTab] = useState('direct'); // 'direct' or 'channels'
   const [showUserList, setShowUserList] = useState(true);
   const [admins, setAdmins] = useState([]);
+  const [channels, setChannels] = useState([]);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
+  const [selectedChannel, setSelectedChannel] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [typingUsers, setTypingUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [userStatus, setUserStatus] = useState('available');
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [userStatuses, setUserStatuses] = useState({});
+  const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
+  const [showAddMembersModal, setShowAddMembersModal] = useState(false);
+  const [channelForm, setChannelForm] = useState({ name: '', description: '', channel_type: 'private', member_ids: [] });
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const statusMenuRef = useRef(null);
+  const emojiPickerRef = useRef(null);
 
   // Load admin list
   useEffect(() => {
@@ -57,10 +87,27 @@ const AdminChatWidget = () => {
       }
     });
 
+    socket.on('message:reaction', (data) => {
+      setMessages(prev => prev.map(msg => 
+        msg.id === data.messageId 
+          ? { ...msg, reactions: data.reactions }
+          : msg
+      ));
+    });
+
+    socket.on('user:status', (data) => {
+      setUserStatuses(prev => ({
+        ...prev,
+        [data.userId]: data.status
+      }));
+    });
+
     return () => {
       socket.off('message:received');
       socket.off('typing:start');
       socket.off('typing:stop');
+      socket.off('message:reaction');
+      socket.off('user:status');
     };
   }, [socket, isOpen, selectedAdmin, user]);
 
@@ -68,6 +115,21 @@ const AdminChatWidget = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(event.target)) {
+        setShowStatusMenu(false);
+      }
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -119,17 +181,46 @@ const AdminChatWidget = () => {
     await loadMessages(admin.id);
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (!newMessage.trim() || !selectedAdmin || !socket) return;
+    if ((!newMessage.trim() && !selectedFile) || !selectedAdmin || !socket) return;
+
+    let attachmentData = null;
+    let messageType = 'text';
+
+    // Upload file if attached
+    if (selectedFile) {
+      try {
+        setUploading(true);
+        const uploadResult = await uploadChatFile(selectedFile);
+        attachmentData = uploadResult.data;
+        
+        // Determine message type
+        if (selectedFile.type.startsWith('image/')) {
+          messageType = 'image';
+        } else {
+          messageType = 'file';
+        }
+      } catch (error) {
+        console.error('File upload error:', error);
+        toast.error('Failed to upload file');
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
 
     socket.emit('message:send', {
       recipient_id: selectedAdmin.id,
-      content: newMessage.trim()
+      content: newMessage.trim() || null,
+      attachments: attachmentData ? [attachmentData] : null,
+      message_type: messageType
     });
 
     setNewMessage('');
+    setSelectedFile(null);
     
     // Stop typing indicator
     socket.emit('typing:stop', { recipient_id: selectedAdmin.id });
@@ -158,6 +249,60 @@ const AdminChatWidget = () => {
     setShowUserList(true);
     setSelectedAdmin(null);
     setMessages([]);
+    setSelectedFile(null);
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Check file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size must be less than 10MB');
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleEmojiSelect = (emoji) => {
+    setNewMessage(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const handleReaction = (messageId, emoji) => {
+    if (!socket) return;
+    socket.emit('message:react', { messageId, emoji });
+  };
+
+  const handleStatusChange = (status) => {
+    setUserStatus(status);
+    setShowStatusMenu(false);
+    if (socket) {
+      socket.emit('status:update', { status });
+    }
+    toast.success(`Status changed to ${status}`);
+  };
+
+  const getUserStatus = (userId) => {
+    return userStatuses[userId] || 'available';
+  };
+
+  const getStatusColor = (status) => {
+    const statusOption = STATUS_OPTIONS.find(opt => opt.value === status);
+    return statusOption ? statusOption.color : 'bg-gray-400';
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const isUserOnline = (userId) => {
@@ -206,7 +351,36 @@ const AdminChatWidget = () => {
               </h3>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
+              {/* Status Indicator with Dropdown */}
+              <div className="relative" ref={statusMenuRef}>
+                <button
+                  onClick={() => setShowStatusMenu(!showStatusMenu)}
+                  className="flex items-center gap-1 p-1 hover:bg-teal-700 rounded transition-colors"
+                  title="Change status"
+                >
+                  <div className={`w-2 h-2 rounded-full ${getStatusColor(userStatus)}`}></div>
+                  <ChevronDown size={14} />
+                </button>
+                
+                {showStatusMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px] z-50">
+                    {STATUS_OPTIONS.map((status) => (
+                      <button
+                        key={status.value}
+                        onClick={() => handleStatusChange(status.value)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors ${
+                          userStatus === status.value ? 'bg-gray-50' : ''
+                        }`}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${status.color}`}></div>
+                        <span className="text-sm text-gray-700">{status.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} title={isConnected ? 'Connected' : 'Disconnected'}></div>
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
                 className="p-1 hover:bg-teal-700 rounded transition-colors"
@@ -258,7 +432,7 @@ const AdminChatWidget = () => {
                               {admin.first_name[0]}{admin.last_name[0]}
                             </div>
                             {isUserOnline(admin.id) && (
-                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                              <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(getUserStatus(admin.id))}`}></div>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -303,8 +477,10 @@ const AdminChatWidget = () => {
                           <div
                             key={message.id}
                             className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
+                            onMouseEnter={() => setHoveredMessageId(message.id)}
+                            onMouseLeave={() => setHoveredMessageId(null)}
                           >
-                            <div className="max-w-xs">
+                            <div className="max-w-xs relative group">
                               <div
                                 className={`px-3 py-2 rounded-lg text-sm ${
                                   isSent
@@ -312,8 +488,88 @@ const AdminChatWidget = () => {
                                     : 'bg-white text-gray-800 rounded-bl-none shadow'
                                 }`}
                               >
-                                <p className="break-words">{message.content}</p>
+                                {/* Text content */}
+                                {message.content && (
+                                  <p className="break-words">{message.content}</p>
+                                )}
+                                
+                                {/* Attachments */}
+                                {message.attachments && message.attachments.length > 0 && (
+                                  <div className="mt-2">
+                                    {message.attachments.map((attachment, idx) => (
+                                      <div key={idx}>
+                                        {message.message_type === 'image' ? (
+                                          <a 
+                                            href={attachment.url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="block"
+                                          >
+                                            <img 
+                                              src={attachment.url} 
+                                              alt={attachment.originalName}
+                                              className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                              style={{ maxHeight: '200px' }}
+                                            />
+                                          </a>
+                                        ) : (
+                                          <a
+                                            href={attachment.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`flex items-center gap-2 p-2 rounded ${
+                                              isSent ? 'bg-teal-600' : 'bg-gray-100'
+                                            } hover:opacity-90 transition-opacity`}
+                                          >
+                                            <File size={20} />
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-xs truncate">{attachment.originalName}</p>
+                                              <p className="text-xs opacity-75">{formatFileSize(attachment.size)}</p>
+                                            </div>
+                                            <Download size={16} />
+                                          </a>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
+                              
+                              {/* Reactions */}
+                              {message.reactions && Object.keys(message.reactions).length > 0 && (
+                                <div className="flex gap-1 mt-1">
+                                  {Object.entries(message.reactions).map(([emoji, users]) => (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => handleReaction(message.id, emoji)}
+                                      className={`text-xs px-1.5 py-0.5 rounded-full border ${
+                                        users.includes(user.id)
+                                          ? 'bg-teal-100 border-teal-300'
+                                          : 'bg-gray-100 border-gray-300'
+                                      } hover:scale-110 transition-transform`}
+                                    >
+                                      {emoji} {users.length > 1 ? users.length : ''}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Reaction button on hover */}
+                              {hoveredMessageId === message.id && (
+                                <div className={`absolute -top-6 ${isSent ? 'right-0' : 'left-0'} flex gap-1 bg-white shadow-lg rounded-full px-2 py-1 border border-gray-200`}>
+                                  {REACTION_EMOJIS.map((emoji) => (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => handleReaction(message.id, emoji)}
+                                      className="hover:scale-125 transition-transform text-base"
+                                      title={`React with ${emoji}`}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              
                               <div className={`mt-1 text-xs text-gray-500 ${isSent ? 'text-right' : 'text-left'}`}>
                                 {formatTime(message.created_at)}
                               </div>
@@ -339,22 +595,105 @@ const AdminChatWidget = () => {
                   </div>
 
                   {/* Message Input */}
-                  <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-200 bg-white">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Type a message..."
-                        className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        value={newMessage}
-                        onChange={handleTyping}
-                      />
-                      <button
-                        type="submit"
-                        className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!newMessage.trim() || !isConnected}
-                      >
-                        <Send size={16} />
-                      </button>
+                  <form onSubmit={handleSendMessage} className="border-t border-gray-200 bg-white">
+                    {/* File Preview */}
+                    {selectedFile && (
+                      <div className="p-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {selectedFile.type.startsWith('image/') ? (
+                            <ImageIcon size={16} className="text-teal-600 flex-shrink-0" />
+                          ) : (
+                            <File size={16} className="text-teal-600 flex-shrink-0" />
+                          )}
+                          <span className="text-xs text-gray-600 truncate">{selectedFile.name}</span>
+                          <span className="text-xs text-gray-400">({formatFileSize(selectedFile.size)})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveFile}
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
+                    
+                    <div className="p-3">
+                      <div className="flex gap-2 items-end">
+                        {/* Attachment button */}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="p-2 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                          title="Attach file"
+                          disabled={uploading}
+                        >
+                          <Paperclip size={18} />
+                        </button>
+                        
+                        {/* Emoji picker */}
+                        <div className="relative" ref={emojiPickerRef}>
+                          <button
+                            type="button"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            className="p-2 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                            title="Add emoji"
+                          >
+                            <Smile size={18} />
+                          </button>
+                          
+                          {showEmojiPicker && (
+                            <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 p-3 grid grid-cols-8 gap-1 z-50">
+                              {['😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊',
+                                '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘',
+                                '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪',
+                                '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒',
+                                '👍', '👎', '👌', '✌️', '🤞', '🤝', '👏', '🙌',
+                                '💪', '🙏', '❤️', '💔', '💯', '🔥', '✨', '🎉',
+                                '🎊', '🎈', '🎁', '🏆', '🥇', '🥈', '🥉', '⭐'].map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => handleEmojiSelect(emoji)}
+                                  className="text-xl hover:scale-125 transition-transform"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Message input */}
+                        <input
+                          type="text"
+                          placeholder="Type a message..."
+                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          value={newMessage}
+                          onChange={handleTyping}
+                          disabled={uploading}
+                        />
+                        
+                        {/* Send button */}
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={(!newMessage.trim() && !selectedFile) || !isConnected || uploading}
+                        >
+                          {uploading ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Send size={16} />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </form>
                 </div>

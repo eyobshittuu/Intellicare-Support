@@ -27,4 +27,7 @@ router.get('/users/search', chatController.searchUsers);
 // Get unread count
 router.get('/unread-count', chatController.getUnreadCount);
 
+// Upload file for chat
+router.post('/upload', chatController.upload, chatController.uploadChatFile);
+
 module.exports = router;

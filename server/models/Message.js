@@ -17,15 +17,23 @@ const Message = sequelize.define('Message', {
   },
   recipient_id: {
     type: DataTypes.BIGINT.UNSIGNED,
-    allowNull: false,
+    allowNull: true, // Null for channel messages
     references: {
       model: 'users',
       key: 'id'
     }
   },
+  channel_id: {
+    type: DataTypes.BIGINT.UNSIGNED,
+    allowNull: true, // Null for direct messages
+    references: {
+      model: 'channels',
+      key: 'id'
+    }
+  },
   content: {
     type: DataTypes.TEXT,
-    allowNull: false
+    allowNull: true // Allow null for messages with only attachments
   },
   is_read: {
     type: DataTypes.BOOLEAN,
@@ -34,6 +42,21 @@ const Message = sequelize.define('Message', {
   read_at: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  attachments: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null
+  },
+  reactions: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null
+    // Structure: { "👍": [userId1, userId2], "❤️": [userId3] }
+  },
+  message_type: {
+    type: DataTypes.ENUM('text', 'file', 'image'),
+    defaultValue: 'text'
   }
 }, {
   tableName: 'messages',

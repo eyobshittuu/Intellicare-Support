@@ -1,5 +1,16 @@
 const { Message, User } = require('../models');
 const { Op } = require('sequelize');
+const cloudinary = require('../config/cloudinary');
+const multer = require('multer');
+
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+}).single('file');
 
 // Get all conversations for the current user
 exports.getConversations = async (req, res) => {
@@ -318,3 +329,66 @@ exports.getAllUsers = async (req, res) => {
     });
   }
 };
+
+// Upload file for chat
+exports.uploadChatFile = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file provided'
+      });
+    }
+
+    const file = req.file;
+    
+    // Determine resource type based on mimetype
+    let resourceType = 'raw';
+    if (file.mimetype.startsWith('image/')) {
+      resourceType = 'image';
+    } else if (file.mimetype.startsWith('video/')) {
+      resourceType = 'video';
+    }
+
+    // Upload to Cloudinary
+    const result = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'intellicare-chat',
+          resource_type: resourceType,
+          public_id: `chat-${Date.now()}-${Math.floor(Math.random() * 1000000000)}`
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(file.buffer);
+    });
+
+    const fileData = {
+      filename: result.public_id,
+      originalName: file.originalname,
+      url: result.secure_url,
+      publicId: result.public_id,
+      size: result.bytes,
+      mimetype: file.mimetype,
+      resourceType: result.resource_type,
+      uploadedAt: new Date()
+    };
+
+    res.json({
+      success: true,
+      data: fileData
+    });
+  } catch (error) {
+    console.error('Upload chat file error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading file',
+      error: error.message
+    });
+  }
+};
+
+exports.upload = upload;

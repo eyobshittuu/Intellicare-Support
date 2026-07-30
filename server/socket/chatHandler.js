@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { Message, User } = require('../models');
+const { Message, User, Channel, ChannelMember } = require('../models');
 
 // Store online users
 const onlineUsers = new Map();
@@ -20,6 +20,16 @@ const chatHandler = (io) => {
         // Join personal room
         socket.join(`user:${decoded.id}`);
         
+        // Join all user's channel rooms
+        const memberships = await ChannelMember.findAll({
+          where: { user_id: decoded.id },
+          attributes: ['channel_id']
+        });
+        
+        memberships.forEach(membership => {
+          socket.join(`channel:${membership.channel_id}`);
+        });
+        
         // Broadcast user online status
         io.emit('user:online', { userId: decoded.id });
         
@@ -39,13 +49,37 @@ const chatHandler = (io) => {
           return;
         }
 
-        const { recipient_id, content } = data;
+        const { recipient_id, channel_id, content, attachments, message_type } = data;
+
+        // Validate: must have either recipient_id OR channel_id
+        if (!recipient_id && !channel_id) {
+          socket.emit('error', { message: 'Recipient or channel required' });
+          return;
+        }
+
+        // If channel message, verify membership
+        if (channel_id) {
+          const membership = await ChannelMember.findOne({
+            where: {
+              channel_id,
+              user_id: socket.userId
+            }
+          });
+
+          if (!membership) {
+            socket.emit('error', { message: 'You are not a member of this channel' });
+            return;
+          }
+        }
 
         // Create message in database
         const message = await Message.create({
           sender_id: socket.userId,
-          recipient_id,
-          content
+          recipient_id: recipient_id || null,
+          channel_id: channel_id || null,
+          content: content || null,
+          attachments: attachments || null,
+          message_type: message_type || 'text'
         });
 
         // Fetch complete message with user data
@@ -56,21 +90,30 @@ const chatHandler = (io) => {
               as: 'sender',
               attributes: ['id', 'first_name', 'last_name', 'email', 'role']
             },
-            {
+            recipient_id ? {
               model: User,
               as: 'recipient',
               attributes: ['id', 'first_name', 'last_name', 'email', 'role']
-            }
-          ]
+            } : null,
+            channel_id ? {
+              model: Channel,
+              as: 'channel',
+              attributes: ['id', 'name', 'channel_type']
+            } : null
+          ].filter(Boolean)
         });
 
-        // Send to sender
-        socket.emit('message:received', completeMessage);
-
-        // Send to recipient if online
-        io.to(`user:${recipient_id}`).emit('message:received', completeMessage);
-
-        console.log(`Message sent from ${socket.userId} to ${recipient_id}`);
+        if (channel_id) {
+          // Send to all channel members
+          io.to(`channel:${channel_id}`).emit('message:received', completeMessage);
+          console.log(`Channel message sent in channel ${channel_id} by user ${socket.userId}`);
+        } else {
+          // Send to sender
+          socket.emit('message:received', completeMessage);
+          // Send to recipient if online
+          io.to(`user:${recipient_id}`).emit('message:received', completeMessage);
+          console.log(`Message sent from ${socket.userId} to ${recipient_id}`);
+        }
       } catch (error) {
         console.error('Send message error:', error);
         socket.emit('error', { message: 'Failed to send message' });
@@ -127,6 +170,118 @@ const chatHandler = (io) => {
       } catch (error) {
         console.error('Mark as read error:', error);
       }
+    });
+
+    // Add reaction to message
+    socket.on('message:react', async (data) => {
+      try {
+        if (!socket.userId) return;
+
+        const { messageId, emoji } = data;
+        
+        const message = await Message.findByPk(messageId);
+        if (!message) return;
+
+        // Get current reactions or initialize
+        const reactions = message.reactions || {};
+        
+        // Toggle reaction
+        if (!reactions[emoji]) {
+          reactions[emoji] = [];
+        }
+        
+        const userIndex = reactions[emoji].indexOf(socket.userId);
+        if (userIndex > -1) {
+          // Remove reaction
+          reactions[emoji].splice(userIndex, 1);
+          if (reactions[emoji].length === 0) {
+            delete reactions[emoji];
+          }
+        } else {
+          // Add reaction
+          reactions[emoji].push(socket.userId);
+        }
+
+        // Update message
+        await message.update({ reactions });
+
+        // Broadcast to both users
+        const updatedMessage = await Message.findByPk(messageId);
+        io.to(`user:${message.sender_id}`).emit('message:reaction', {
+          messageId,
+          reactions: updatedMessage.reactions
+        });
+        io.to(`user:${message.recipient_id}`).emit('message:reaction', {
+          messageId,
+          reactions: updatedMessage.reactions
+        });
+      } catch (error) {
+        console.error('Reaction error:', error);
+      }
+    });
+
+    // Update user status
+    socket.on('status:update', (data) => {
+      if (!socket.userId) return;
+      
+      const { status } = data;
+      // Broadcast status to all users
+      io.emit('user:status', {
+        userId: socket.userId,
+        status
+      });
+    });
+
+    // Join channel room
+    socket.on('channel:join', async (data) => {
+      if (!socket.userId) return;
+      
+      const { channelId } = data;
+      
+      // Verify membership
+      const membership = await ChannelMember.findOne({
+        where: {
+          channel_id: channelId,
+          user_id: socket.userId
+        }
+      });
+      
+      if (membership) {
+        socket.join(`channel:${channelId}`);
+        socket.emit('channel:joined', { channelId });
+      } else {
+        socket.emit('error', { message: 'Not a member of this channel' });
+      }
+    });
+
+    // Leave channel room
+    socket.on('channel:leave', (data) => {
+      if (!socket.userId) return;
+      
+      const { channelId } = data;
+      socket.leave(`channel:${channelId}`);
+      socket.emit('channel:left', { channelId });
+    });
+
+    // Typing in channel
+    socket.on('channel:typing:start', (data) => {
+      if (!socket.userId) return;
+      
+      const { channelId } = data;
+      socket.to(`channel:${channelId}`).emit('channel:typing:start', {
+        userId: socket.userId,
+        channelId
+      });
+    });
+
+    socket.on('channel:typing:stop', (data) => {
+      if (!socket.userId) return;
+      
+      const { channelId } = data;
+      socket.to(`channel:${channelId}`).emit('channel:typing:stop', {
+        userId: socket.userId,
+        channelId
+      });
     });
 
     // Get online users

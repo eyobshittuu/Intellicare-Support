@@ -338,13 +338,27 @@ router.get('/status', async (req, res) => {
         ORDER BY column_name;
       `);
 
+      const [messageResults] = await db.query(`
+        SELECT 
+          column_name, 
+          is_nullable, 
+          data_type,
+          column_default
+        FROM information_schema.columns 
+        WHERE table_name = 'messages' 
+        AND column_name IN ('attachments', 'reactions', 'message_type')
+        ORDER BY column_name;
+      `);
+
       const userIdNullable = results.find(col => col.column_name === 'user_id')?.is_nullable === 'YES';
       const hasDifficultyFields = results.some(col => col.column_name === 'difficulty');
+      const hasChatFeatures = messageResults.some(col => col.column_name === 'attachments');
 
       return res.json({
         success: true,
         database: 'PostgreSQL',
         columns: results,
+        messageColumns: messageResults,
         migrations: {
           userIdNullable: {
             complete: userIdNullable,
@@ -353,9 +367,13 @@ router.get('/status', async (req, res) => {
           difficultySystem: {
             complete: hasDifficultyFields,
             status: hasDifficultyFields ? '✅ Complete' : '⚠️ Needed'
+          },
+          chatFeatures: {
+            complete: hasChatFeatures,
+            status: hasChatFeatures ? '✅ Complete' : '⚠️ Needed'
           }
         },
-        message: userIdNullable && hasDifficultyFields
+        message: userIdNullable && hasDifficultyFields && hasChatFeatures
           ? '✅ All migrations complete!' 
           : '⚠️ Some migrations are pending.'
       });
@@ -374,6 +392,297 @@ router.get('/status', async (req, res) => {
       success: false,
       message: 'Status check failed',
       error: error.message
+    });
+  }
+});
+
+/**
+ * CHAT FEATURES MIGRATION
+ * 
+ * Add attachments, reactions, and message_type columns to messages table
+ * GET https://intellicare-support-1.onrender.com/api/migrate/add-chat-features
+ */
+router.get('/add-chat-features', async (req, res) => {
+  try {
+    logger.info('🔄 Starting migration: Add chat features to messages table');
+
+    const dialect = db.getDialect();
+    
+    if (dialect === 'postgres') {
+      // PostgreSQL - Add columns if they don't exist
+      await db.query(`
+        DO $$ 
+        BEGIN
+          -- Make content nullable (allow messages with only attachments)
+          BEGIN
+            ALTER TABLE messages ALTER COLUMN content DROP NOT NULL;
+            RAISE NOTICE 'Content column is now nullable';
+          EXCEPTION
+            WHEN others THEN
+              RAISE NOTICE 'Content column already nullable or error: %', SQLERRM;
+          END;
+
+          -- Add attachments column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'messages' AND column_name = 'attachments'
+          ) THEN
+            ALTER TABLE messages ADD COLUMN attachments JSONB DEFAULT NULL;
+            RAISE NOTICE 'Added attachments column';
+          END IF;
+
+          -- Add reactions column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'messages' AND column_name = 'reactions'
+          ) THEN
+            ALTER TABLE messages ADD COLUMN reactions JSONB DEFAULT NULL;
+            RAISE NOTICE 'Added reactions column';
+          END IF;
+
+          -- Add message_type column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'messages' AND column_name = 'message_type'
+          ) THEN
+            ALTER TABLE messages ADD COLUMN message_type VARCHAR(20) DEFAULT 'text';
+            ALTER TABLE messages ADD CONSTRAINT messages_message_type_check 
+              CHECK (message_type IN ('text', 'file', 'image'));
+            RAISE NOTICE 'Added message_type column';
+          END IF;
+        END $$;
+      `);
+      
+      logger.info('✅ PostgreSQL: Chat features added successfully');
+      
+      // Verify the changes
+      const [results] = await db.query(`
+        SELECT column_name, is_nullable, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'messages' 
+        AND column_name IN ('content', 'attachments', 'reactions', 'message_type')
+        ORDER BY column_name;
+      `);
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'PostgreSQL',
+        changes: 'Added attachments, reactions, and message_type columns to messages table',
+        columns: results,
+        note: 'File attachments, emoji reactions, and rich messaging features are now available.'
+      });
+
+    } else if (dialect === 'mysql') {
+      // MySQL - Add columns if they don't exist
+      const queries = [
+        `ALTER TABLE messages MODIFY content TEXT NULL`,
+        `ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSON DEFAULT NULL`,
+        `ALTER TABLE messages ADD COLUMN IF NOT EXISTS reactions JSON DEFAULT NULL`,
+        `ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(20) DEFAULT 'text'`
+      ];
+
+      for (const query of queries) {
+        try {
+          await db.query(query);
+        } catch (err) {
+          // Column might already exist, continue
+          if (!err.message.includes('Duplicate column')) {
+            throw err;
+          }
+        }
+      }
+
+      logger.info('✅ MySQL: Chat features added successfully');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'MySQL',
+        changes: 'Added attachments, reactions, and message_type columns to messages table',
+        note: 'File attachments, emoji reactions, and rich messaging features are now available.'
+      });
+
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported database dialect: ${dialect}`
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Migration failed:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message,
+      hint: 'Check server logs for more details. Columns might already exist.',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
+ * CHANNELS/GROUP CHAT MIGRATION
+ * 
+ * Add channels, channel_members tables and update messages table
+ * GET https://intellicare-support-1.onrender.com/api/migrate/add-channels-support
+ */
+router.get('/add-channels-support', async (req, res) => {
+  try {
+    logger.info('🔄 Starting migration: Add channels/group chat support');
+
+    const dialect = db.getDialect();
+    
+    if (dialect === 'postgres') {
+      await db.query(`
+        DO $$ 
+        BEGIN
+          -- Create channels table
+          IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'channels') THEN
+            CREATE TABLE channels (
+              id BIGSERIAL PRIMARY KEY,
+              name VARCHAR(100) NOT NULL,
+              description TEXT,
+              channel_type VARCHAR(20) DEFAULT 'private' CHECK (channel_type IN ('public', 'private')),
+              created_by BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              avatar_color VARCHAR(7) DEFAULT '#14b8a6',
+              is_archived BOOLEAN DEFAULT FALSE,
+              archived_at TIMESTAMP,
+              created_at TIMESTAMP DEFAULT NOW(),
+              updated_at TIMESTAMP DEFAULT NOW()
+            );
+            RAISE NOTICE 'Created channels table';
+          END IF;
+
+          -- Create channel_members table
+          IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'channel_members') THEN
+            CREATE TABLE channel_members (
+              id BIGSERIAL PRIMARY KEY,
+              channel_id BIGINT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+              user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              role VARCHAR(20) DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
+              joined_at TIMESTAMP DEFAULT NOW(),
+              last_read_at TIMESTAMP,
+              UNIQUE(channel_id, user_id)
+            );
+            CREATE INDEX idx_channel_members_channel ON channel_members(channel_id);
+            CREATE INDEX idx_channel_members_user ON channel_members(user_id);
+            RAISE NOTICE 'Created channel_members table';
+          END IF;
+
+          -- Add channel_id to messages table
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'messages' AND column_name = 'channel_id'
+          ) THEN
+            ALTER TABLE messages ADD COLUMN channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE;
+            CREATE INDEX idx_messages_channel ON messages(channel_id);
+            RAISE NOTICE 'Added channel_id to messages table';
+          END IF;
+
+          -- Make recipient_id nullable (for channel messages)
+          BEGIN
+            ALTER TABLE messages ALTER COLUMN recipient_id DROP NOT NULL;
+            RAISE NOTICE 'Made recipient_id nullable';
+          EXCEPTION
+            WHEN others THEN
+              RAISE NOTICE 'recipient_id already nullable or error: %', SQLERRM;
+          END;
+        END $$;
+      `);
+      
+      logger.info('✅ PostgreSQL: Channels support added successfully');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'PostgreSQL',
+        changes: 'Created channels and channel_members tables, updated messages table',
+        note: 'Channels/group chat feature is now available. Update frontend to use it.'
+      });
+
+    } else if (dialect === 'mysql') {
+      const queries = [
+        // Create channels table
+        `CREATE TABLE IF NOT EXISTS channels (
+          id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          description TEXT,
+          channel_type VARCHAR(20) DEFAULT 'private',
+          created_by BIGINT UNSIGNED NOT NULL,
+          avatar_color VARCHAR(7) DEFAULT '#14b8a6',
+          is_archived BOOLEAN DEFAULT FALSE,
+          archived_at DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+          CHECK (channel_type IN ('public', 'private'))
+        )`,
+        
+        // Create channel_members table
+        `CREATE TABLE IF NOT EXISTS channel_members (
+          id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          channel_id BIGINT UNSIGNED NOT NULL,
+          user_id BIGINT UNSIGNED NOT NULL,
+          role VARCHAR(20) DEFAULT 'member',
+          joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          last_read_at DATETIME,
+          FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          UNIQUE KEY unique_channel_member (channel_id, user_id),
+          CHECK (role IN ('owner', 'admin', 'member'))
+        )`,
+        
+        // Add channel_id to messages
+        `ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel_id BIGINT UNSIGNED`,
+        
+        // Add foreign key for channel_id
+        `ALTER TABLE messages ADD CONSTRAINT IF NOT EXISTS fk_messages_channel 
+         FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE`,
+        
+        // Make recipient_id nullable
+        `ALTER TABLE messages MODIFY recipient_id BIGINT UNSIGNED NULL`
+      ];
+
+      for (const query of queries) {
+        try {
+          await db.query(query);
+        } catch (err) {
+          // Table/column might already exist
+          if (!err.message.includes('Duplicate') && !err.message.includes('exists')) {
+            logger.warn('Query warning:', err.message);
+          }
+        }
+      }
+
+      logger.info('✅ MySQL: Channels support added successfully');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'MySQL',
+        changes: 'Created channels and channel_members tables, updated messages table',
+        note: 'Channels/group chat feature is now available. Update frontend to use it.'
+      });
+
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported database dialect: ${dialect}`
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Migration failed:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message,
+      hint: 'Check server logs for more details. Tables might already exist.',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

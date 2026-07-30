@@ -2,6 +2,8 @@ const sequelize = require('../config/database');
 const User = require('./User');
 const Ticket = require('./Ticket');
 const Message = require('./Message');
+const Channel = require('./Channel');
+const ChannelMember = require('./ChannelMember');
 
 // Define relationships
 User.hasMany(Ticket, {
@@ -77,9 +79,62 @@ Message.belongsTo(User, {
   onDelete: 'CASCADE'
 });
 
+// Channel relationships
+User.hasMany(Channel, {
+  foreignKey: 'created_by',
+  as: 'created_channels',
+  onDelete: 'CASCADE'
+});
+
+Channel.belongsTo(User, {
+  foreignKey: 'created_by',
+  as: 'creator',
+  onDelete: 'CASCADE'
+});
+
+// Channel members relationships
+Channel.hasMany(ChannelMember, {
+  foreignKey: 'channel_id',
+  as: 'members',
+  onDelete: 'CASCADE'
+});
+
+ChannelMember.belongsTo(Channel, {
+  foreignKey: 'channel_id',
+  as: 'channel',
+  onDelete: 'CASCADE'
+});
+
+User.hasMany(ChannelMember, {
+  foreignKey: 'user_id',
+  as: 'channel_memberships',
+  onDelete: 'CASCADE'
+});
+
+ChannelMember.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user',
+  onDelete: 'CASCADE'
+});
+
+// Channel messages
+Channel.hasMany(Message, {
+  foreignKey: 'channel_id',
+  as: 'messages',
+  onDelete: 'CASCADE'
+});
+
+Message.belongsTo(Channel, {
+  foreignKey: 'channel_id',
+  as: 'channel',
+  onDelete: 'CASCADE'
+});
+
 module.exports = {
   sequelize,
   User,
   Ticket,
-  Message
+  Message,
+  Channel,
+  ChannelMember
 };
