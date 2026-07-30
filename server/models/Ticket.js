@@ -137,8 +137,23 @@ const Ticket = sequelize.define('Ticket', {
   hooks: {
     beforeCreate: async (ticket) => {
       if (!ticket.ticket_number) {
-        const count = await Ticket.count();
-        ticket.ticket_number = `TKT-${String(count + 1).padStart(5, '0')}`;
+        // Find the last ticket by ID to get the highest ticket number
+        const lastTicket = await Ticket.findOne({
+          attributes: ['ticket_number'],
+          order: [['id', 'DESC']],
+          limit: 1
+        });
+        
+        let nextNumber = 1;
+        if (lastTicket && lastTicket.ticket_number) {
+          // Extract number from TKT-XXXXX format
+          const match = lastTicket.ticket_number.match(/TKT-(\d+)/);
+          if (match) {
+            nextNumber = parseInt(match[1]) + 1;
+          }
+        }
+        
+        ticket.ticket_number = `TKT-${String(nextNumber).padStart(5, '0')}`;
       }
     }
   }

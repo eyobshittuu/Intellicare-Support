@@ -177,10 +177,24 @@ exports.createTicket = async (req, res) => {
       console.log('Attachments prepared:', JSON.stringify(attachments, null, 2));
     }
 
-    // Generate ticket number
-    const count = await Ticket.count();
-    const ticket_number = `TKT-${String(count + 1).padStart(5, '0')}`;
-    console.log('Generated ticket number:', ticket_number);
+    // Generate ticket number - find max existing number to avoid duplicates
+    const lastTicket = await Ticket.findOne({
+      attributes: ['ticket_number'],
+      order: [['id', 'DESC']],
+      limit: 1
+    });
+    
+    let nextNumber = 1;
+    if (lastTicket && lastTicket.ticket_number) {
+      // Extract number from TKT-XXXXX format
+      const match = lastTicket.ticket_number.match(/TKT-(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1]) + 1;
+      }
+    }
+    
+    const ticket_number = `TKT-${String(nextNumber).padStart(5, '0')}`;
+    console.log('Generated ticket number:', ticket_number, '(last:', lastTicket?.ticket_number, ')');
 
     const ticketData = {
       ticket_number,
