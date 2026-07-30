@@ -14,6 +14,7 @@ const setupRoutes = require('./routes/setupRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const logsRoutes = require('./routes/logsRoutes');
 const migrationRoutes = require('./routes/migrationRoutes');
+const performanceRoutes = require('./routes/performanceRoutes');
 const chatHandler = require('./socket/chatHandler');
 
 const app = express();
@@ -92,6 +93,7 @@ app.use('/api/setup', setupRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/migrate', migrationRoutes);
+app.use('/api/performance', performanceRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
