@@ -10,6 +10,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
+    username: '',
     first_name: '',
     middle_name: '',
     last_name: '',
@@ -88,6 +89,29 @@ const Register = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-600 focus:border-transparent outline-none"
               placeholder="you@example.com"
             />
+          </div>
+
+          {/* Username */}
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+              Username *
+            </label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              required
+              minLength="3"
+              maxLength="50"
+              pattern="[a-zA-Z0-9_]+"
+              value={formData.username}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-600 focus:border-transparent outline-none"
+              placeholder="john_doe"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Only letters, numbers, and underscores (3-50 characters)
+            </p>
           </div>
 
           {/* First Name */}

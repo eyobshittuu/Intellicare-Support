@@ -826,4 +826,87 @@ router.get('/add-mentions-support', async (req, res) => {
   }
 });
 
+/**
+ * ADD USERNAME FIELD
+ * 
+ * Add username column to users table
+ * GET https://intellicare-support-1.onrender.com/api/migrate/add-username-field
+ */
+router.get('/add-username-field', async (req, res) => {
+  try {
+    logger.info('🔄 Starting migration: Add username field to users table');
+
+    const dialect = db.getDialect();
+    
+    if (dialect === 'postgres') {
+      await db.query(`
+        DO $$ 
+        BEGIN
+          -- Add username column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'username'
+          ) THEN
+            ALTER TABLE users ADD COLUMN username VARCHAR(50) UNIQUE;
+            
+            -- Generate usernames for existing users from their email
+            UPDATE users SET username = LOWER(SPLIT_PART(email, '@', 1)) WHERE username IS NULL;
+            
+            -- Make username NOT NULL after populating
+            ALTER TABLE users ALTER COLUMN username SET NOT NULL;
+            
+            RAISE NOTICE 'Added username column';
+          END IF;
+        END $$;
+      `);
+      
+      logger.info('✅ PostgreSQL: Username field added successfully');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'PostgreSQL',
+        changes: 'Added username column to users table',
+        note: 'Usernames were auto-generated from emails for existing users. Users can update them.'
+      });
+
+    } else if (dialect === 'mysql') {
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(50) UNIQUE`);
+      
+      // Generate usernames for existing users
+      await db.query(`UPDATE users SET username = LOWER(SUBSTRING_INDEX(email, '@', 1)) WHERE username IS NULL`);
+      
+      // Make NOT NULL
+      await db.query(`ALTER TABLE users MODIFY username VARCHAR(50) NOT NULL UNIQUE`);
+
+      logger.info('✅ MySQL: Username field added successfully');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'MySQL',
+        changes: 'Added username column to users table',
+        note: 'Usernames were auto-generated from emails for existing users. Users can update them.'
+      });
+
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported database dialect: ${dialect}`
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Migration failed:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message,
+      hint: 'Check server logs for more details. Column might already exist.',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 module.exports = router;

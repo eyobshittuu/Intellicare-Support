@@ -16,6 +16,15 @@ const User = sequelize.define('User', {
       isEmail: true
     }
   },
+  username: {
+    type: DataTypes.STRING(50),
+    allowNull: false,
+    unique: true,
+    validate: {
+      len: [3, 50],
+      is: /^[a-zA-Z0-9_]+$/i // alphanumeric and underscore only
+    }
+  },
   password: {
     type: DataTypes.STRING(255),
     allowNull: false

@@ -319,9 +319,22 @@ const AdminChatWidget = () => {
       mentions.everyone = true;
     }
 
-    // Extract @mentions with user IDs
-    const mentionPattern = /@\[(.+?)\]\((\d+)\)/g;
+    // Extract @username mentions
+    const usernamePattern = /@([a-zA-Z0-9_]+)/g;
     let match;
+    while ((match = usernamePattern.exec(content)) !== null) {
+      const username = match[1];
+      if (username !== 'everyone') {
+        // Find user by username from admins list
+        const user = admins.find(a => a.username === username);
+        if (user && !mentions.user_ids.includes(user.id)) {
+          mentions.user_ids.push(user.id);
+        }
+      }
+    }
+
+    // Also extract old format @[Name](userId) for backwards compatibility
+    const mentionPattern = /@\[(.+?)\]\((\d+)\)/g;
     while ((match = mentionPattern.exec(content)) !== null) {
       const userId = parseInt(match[2]);
       if (!mentions.user_ids.includes(userId)) {
@@ -338,7 +351,9 @@ const AdminChatWidget = () => {
     // In the future, we could fetch channel members separately
     return admins.map(admin => ({
       id: admin.id,
-      name: `${admin.first_name} ${admin.last_name}`,
+      name: admin.username || `${admin.first_name} ${admin.last_name}`,
+      displayName: `${admin.first_name} ${admin.last_name}`,
+      username: admin.username,
       email: admin.email
     }));
   };
@@ -351,8 +366,11 @@ const AdminChatWidget = () => {
     if (mentionedUser.id === 'everyone') {
       setNewMessage(`${beforeMention}@everyone ${afterMention}`);
     } else {
-      // Use format: @[Name](userId)
-      setNewMessage(`${beforeMention}@[${mentionedUser.name}](${mentionedUser.id}) ${afterMention}`);
+      // Use format: @username or @[Name](userId) if no username
+      const mentionText = mentionedUser.username 
+        ? `@${mentionedUser.username}` 
+        : `@[${mentionedUser.displayName}](${mentionedUser.id})`;
+      setNewMessage(`${beforeMention}${mentionText} ${afterMention}`);
     }
     
     setShowMentionList(false);
@@ -365,13 +383,15 @@ const AdminChatWidget = () => {
   const renderMessageContent = (content) => {
     if (!content) return null;
 
-    // Replace @[Name](userId) with highlighted spans
-    const mentionPattern = /@\[(.+?)\]\(\d+\)/g;
+    let processedContent = content;
     const parts = [];
+
+    // Replace @username with highlighted spans
+    const usernamePattern = /@([a-zA-Z0-9_]+)/g;
     let lastIndex = 0;
     let match;
 
-    while ((match = mentionPattern.exec(content)) !== null) {
+    while ((match = usernamePattern.exec(content)) !== null) {
       // Add text before mention
       if (match.index > lastIndex) {
         parts.push(content.substring(lastIndex, match.index));
@@ -379,7 +399,7 @@ const AdminChatWidget = () => {
       
       // Add highlighted mention
       parts.push(
-        <span key={match.index} className="bg-teal-100 text-teal-700 px-1 rounded font-medium">
+        <span key={`username-${match.index}`} className="bg-teal-100 text-teal-700 px-1 rounded font-medium">
           @{match[1]}
         </span>
       );
@@ -392,24 +412,27 @@ const AdminChatWidget = () => {
       parts.push(content.substring(lastIndex));
     }
 
-    // Replace @everyone
-    if (content.includes('@everyone')) {
-      const everyoneParts = [];
-      let text = parts.length > 0 ? parts.join('') : content;
-      const everyoneSplit = text.split('@everyone');
-      
-      everyoneSplit.forEach((part, index) => {
-        everyoneParts.push(part);
-        if (index < everyoneSplit.length - 1) {
-          everyoneParts.push(
-            <span key={`everyone-${index}`} className="bg-yellow-100 text-yellow-700 px-1 rounded font-medium">
-              @everyone
-            </span>
-          );
+    // Also handle old format @[Name](userId) for backwards compatibility
+    const mentionPattern = /@\[(.+?)\]\(\d+\)/g;
+    if (mentionPattern.test(content) && parts.length === 0) {
+      lastIndex = 0;
+      while ((match = mentionPattern.exec(content)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push(content.substring(lastIndex, match.index));
         }
-      });
-      
-      return <>{everyoneParts}</>;
+        
+        parts.push(
+          <span key={`legacy-${match.index}`} className="bg-teal-100 text-teal-700 px-1 rounded font-medium">
+            @{match[1]}
+          </span>
+        );
+        
+        lastIndex = match.index + match[0].length;
+      }
+
+      if (lastIndex < content.length) {
+        parts.push(content.substring(lastIndex));
+      }
     }
 
     return parts.length > 0 ? <>{parts}</> : content;
@@ -1016,8 +1039,11 @@ const AdminChatWidget = () => {
                                 </button>
                               )}
                               {getMentionableUsers()
-                                .filter(u => u.name.toLowerCase().includes(mentionSearch) || 
-                                            u.email.toLowerCase().includes(mentionSearch))
+                                .filter(u => 
+                                  (u.username && u.username.toLowerCase().includes(mentionSearch)) ||
+                                  u.name.toLowerCase().includes(mentionSearch) || 
+                                  u.email.toLowerCase().includes(mentionSearch)
+                                )
                                 .map((u, index) => (
                                   <button
                                     key={u.id}
@@ -1028,11 +1054,15 @@ const AdminChatWidget = () => {
                                     }`}
                                   >
                                     <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                                      {u.name.split(' ').map(n => n[0]).join('')}
+                                      {u.displayName?.split(' ').map(n => n[0]).join('') || u.name[0]}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium text-gray-900 truncate">{u.name}</p>
-                                      <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {u.username ? `@${u.username}` : u.displayName}
+                                      </p>
+                                      <p className="text-xs text-gray-500 truncate">
+                                        {u.displayName && u.username ? u.displayName + ' • ' : ''}{u.email}
+                                      </p>
                                     </div>
                                   </button>
                                 ))}
@@ -1118,6 +1148,7 @@ const AdminChatWidget = () => {
                           onKeyDown={(e) => {
                             if (showMentionList) {
                               const filteredUsers = getMentionableUsers().filter(u => 
+                                (u.username && u.username.toLowerCase().includes(mentionSearch)) ||
                                 u.name.toLowerCase().includes(mentionSearch) || 
                                 u.email.toLowerCase().includes(mentionSearch)
                               );

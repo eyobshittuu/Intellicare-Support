@@ -14,9 +14,26 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { email, password, first_name, middle_name, last_name } = req.body;
+    const { email, username, password, first_name, middle_name, last_name } = req.body;
 
-    // Check if user exists
+    // Validate username format
+    if (username) {
+      if (username.length < 3 || username.length > 50) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username must be between 3 and 50 characters'
+        });
+      }
+      
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username can only contain letters, numbers, and underscores'
+        });
+      }
+    }
+
+    // Check if user exists with email
     const userExists = await User.findOne({ where: { email } });
     if (userExists) {
       return res.status(400).json({
@@ -25,9 +42,24 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Check if username exists
+    if (username) {
+      const usernameExists = await User.findOne({ where: { username } });
+      if (usernameExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username already taken'
+        });
+      }
+    }
+
+    // Generate username from email if not provided
+    const finalUsername = username || email.split('@')[0].toLowerCase().replace(/[^a-zA-Z0-9_]/g, '_');
+
     // Create user
     const user = await User.create({
       email,
+      username: finalUsername,
       password,
       first_name,
       middle_name,
@@ -38,6 +70,7 @@ exports.register = async (req, res) => {
     logger.info('User registered', {
       userId: user.id,
       email: user.email,
+      username: user.username,
       name: `${user.first_name} ${user.last_name}`,
       role: user.role,
       action: 'USER_REGISTER'
@@ -53,6 +86,7 @@ exports.register = async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         first_name: user.first_name,
         middle_name: user.middle_name,
         last_name: user.last_name,

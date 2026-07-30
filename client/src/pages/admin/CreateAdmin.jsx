@@ -10,6 +10,7 @@ const CreateAdmin = () => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
+    username: '',
     password: '',
     confirm_password: '',
     first_name: '',
@@ -40,6 +41,14 @@ const CreateAdmin = () => {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
+    }
+
+    if (!formData.username.trim()) {
+      newErrors.username = 'Username is required';
+    } else if (formData.username.length < 3 || formData.username.length > 50) {
+      newErrors.username = 'Username must be between 3 and 50 characters';
+    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+      newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
 
     if (!formData.password) {
@@ -125,6 +134,33 @@ const CreateAdmin = () => {
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email}</p>
               )}
+            </div>
+
+            {/* Username */}
+            <div className="md:col-span-2">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                Username <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                minLength="3"
+                maxLength="50"
+                pattern="[a-zA-Z0-9_]+"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent ${
+                  errors.username ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="john_admin"
+              />
+              {errors.username && (
+                <p className="mt-1 text-sm text-red-600">{errors.username}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Only letters, numbers, and underscores (3-50 characters)
+              </p>
             </div>
 
             {/* First Name */}
