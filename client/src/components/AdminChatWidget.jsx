@@ -46,11 +46,17 @@ const AdminChatWidget = () => {
   const [showAddMembersModal, setShowAddMembersModal] = useState(false);
   const [channelForm, setChannelForm] = useState({ name: '', description: '', channel_type: 'private', member_ids: [] });
   const [viewingFile, setViewingFile] = useState(null);
+  const [showMentionList, setShowMentionList] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
   const statusMenuRef = useRef(null);
   const emojiPickerRef = useRef(null);
+  const mentionListRef = useRef(null);
+  const messageInputRef = useRef(null);
 
   // Load admin list and channels
   useEffect(() => {
@@ -138,6 +144,26 @@ const AdminChatWidget = () => {
       }));
     });
 
+    socket.on('mention:received', (data) => {
+      const { message, channel_id, everyone } = data;
+      const sender = message.sender;
+      const senderName = `${sender.first_name} ${sender.last_name}`;
+      
+      if (everyone) {
+        toast.info(`@everyone mentioned you in ${message.channel.name}`, {
+          duration: 5000
+        });
+      } else if (channel_id) {
+        toast.info(`${senderName} mentioned you in ${message.channel.name}`, {
+          duration: 5000
+        });
+      } else {
+        toast.info(`${senderName} mentioned you`, {
+          duration: 5000
+        });
+      }
+    });
+
     return () => {
       socket.off('message:received');
       socket.off('typing:start');
@@ -146,6 +172,7 @@ const AdminChatWidget = () => {
       socket.off('channel:typing:stop');
       socket.off('message:reaction');
       socket.off('user:status');
+      socket.off('mention:received');
     };
   }, [socket, selectedAdmin, selectedChannel, user]);
 
@@ -278,6 +305,124 @@ const AdminChatWidget = () => {
     }
   };
 
+  // Extract mentions from message content
+  const extractMentions = (content) => {
+    const mentions = {
+      user_ids: [],
+      everyone: false
+    };
+
+    if (!content) return null;
+
+    // Check for @everyone
+    if (content.includes('@everyone')) {
+      mentions.everyone = true;
+    }
+
+    // Extract @mentions with user IDs
+    const mentionPattern = /@\[(.+?)\]\((\d+)\)/g;
+    let match;
+    while ((match = mentionPattern.exec(content)) !== null) {
+      const userId = parseInt(match[2]);
+      if (!mentions.user_ids.includes(userId)) {
+        mentions.user_ids.push(userId);
+      }
+    }
+
+    return (mentions.user_ids.length > 0 || mentions.everyone) ? mentions : null;
+  };
+
+  // Get mentionable users (channel members or all admins)
+  const getMentionableUsers = () => {
+    if (selectedChannel && selectedChannel.members) {
+      return selectedChannel.members
+        .filter(member => member.id !== user.id)
+        .map(member => ({
+          id: member.id,
+          name: `${member.first_name} ${member.last_name}`,
+          email: member.email
+        }));
+    }
+    
+    return admins.map(admin => ({
+      id: admin.id,
+      name: `${admin.first_name} ${admin.last_name}`,
+      email: admin.email
+    }));
+  };
+
+  // Handle mention selection
+  const handleMentionSelect = (mentionedUser) => {
+    const beforeMention = newMessage.substring(0, mentionStartIndex);
+    const afterMention = newMessage.substring(newMessage.length);
+    
+    if (mentionedUser.id === 'everyone') {
+      setNewMessage(`${beforeMention}@everyone ${afterMention}`);
+    } else {
+      // Use format: @[Name](userId)
+      setNewMessage(`${beforeMention}@[${mentionedUser.name}](${mentionedUser.id}) ${afterMention}`);
+    }
+    
+    setShowMentionList(false);
+    setMentionSearch('');
+    setMentionStartIndex(-1);
+    messageInputRef.current?.focus();
+  };
+
+  // Render message content with highlighted mentions
+  const renderMessageContent = (content) => {
+    if (!content) return null;
+
+    // Replace @[Name](userId) with highlighted spans
+    const mentionPattern = /@\[(.+?)\]\(\d+\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = mentionPattern.exec(content)) !== null) {
+      // Add text before mention
+      if (match.index > lastIndex) {
+        parts.push(content.substring(lastIndex, match.index));
+      }
+      
+      // Add highlighted mention
+      parts.push(
+        <span key={match.index} className="bg-teal-100 text-teal-700 px-1 rounded font-medium">
+          @{match[1]}
+        </span>
+      );
+      
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+
+    // Replace @everyone
+    if (content.includes('@everyone')) {
+      const everyoneParts = [];
+      let text = parts.length > 0 ? parts.join('') : content;
+      const everyoneSplit = text.split('@everyone');
+      
+      everyoneSplit.forEach((part, index) => {
+        everyoneParts.push(part);
+        if (index < everyoneSplit.length - 1) {
+          everyoneParts.push(
+            <span key={`everyone-${index}`} className="bg-yellow-100 text-yellow-700 px-1 rounded font-medium">
+              @everyone
+            </span>
+          );
+        }
+      });
+      
+      return <>{everyoneParts}</>;
+    }
+
+    return parts.length > 0 ? <>{parts}</> : content;
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
@@ -313,7 +458,8 @@ const AdminChatWidget = () => {
     const messageData = {
       content: newMessage.trim() || null,
       attachments: attachmentData ? [attachmentData] : null,
-      message_type: messageType
+      message_type: messageType,
+      mentions: extractMentions(newMessage.trim())
     };
 
     // Add recipient or channel ID
@@ -333,7 +479,27 @@ const AdminChatWidget = () => {
   };
 
   const handleTyping = (e) => {
-    setNewMessage(e.target.value);
+    const value = e.target.value;
+    setNewMessage(value);
+
+    // Check for @ mention trigger
+    const cursorPosition = e.target.selectionStart;
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1 && lastAtIndex >= textBeforeCursor.lastIndexOf(' ') + 1) {
+      const searchTerm = textBeforeCursor.substring(lastAtIndex + 1);
+      if (!searchTerm.includes(' ')) {
+        setMentionSearch(searchTerm.toLowerCase());
+        setMentionStartIndex(lastAtIndex);
+        setShowMentionList(true);
+        setSelectedMentionIndex(0);
+      } else {
+        setShowMentionList(false);
+      }
+    } else {
+      setShowMentionList(false);
+    }
 
     if (!socket) return;
     if (!selectedAdmin && !selectedChannel) return;
@@ -700,7 +866,7 @@ const AdminChatWidget = () => {
                                 
                                 {/* Text content */}
                                 {message.content && (
-                                  <p className="break-words">{message.content}</p>
+                                  <p className="break-words">{renderMessageContent(message.content)}</p>
                                 )}
                                 
                                 {/* Attachments */}
@@ -833,7 +999,55 @@ const AdminChatWidget = () => {
                     )}
                     
                     <div className="p-3">
-                      <div className="flex gap-2 items-end">
+                      <div className="flex gap-2 items-end relative">
+                        {/* Mention Suggestions */}
+                        {showMentionList && (
+                          <div 
+                            ref={mentionListRef}
+                            className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-xl border border-gray-300 w-64 max-h-48 overflow-y-auto z-50"
+                          >
+                            <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
+                              <p className="text-xs font-semibold text-gray-700">Mention</p>
+                            </div>
+                            <div>
+                              {selectedChannel && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMentionSelect({ id: 'everyone', name: 'everyone' })}
+                                  className="w-full px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-left"
+                                >
+                                  <Users size={16} className="text-teal-600" />
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">@everyone</p>
+                                    <p className="text-xs text-gray-500">Notify all members</p>
+                                  </div>
+                                </button>
+                              )}
+                              {getMentionableUsers()
+                                .filter(u => u.name.toLowerCase().includes(mentionSearch) || 
+                                            u.email.toLowerCase().includes(mentionSearch))
+                                .map((u, index) => (
+                                  <button
+                                    key={u.id}
+                                    type="button"
+                                    onClick={() => handleMentionSelect(u)}
+                                    className={`w-full px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-left ${
+                                      index === selectedMentionIndex ? 'bg-gray-100' : ''
+                                    }`}
+                                  >
+                                    <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                                      {u.name.split(' ').map(n => n[0]).join('')}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 truncate">{u.name}</p>
+                                      <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                                    </div>
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Attachment button */}
                         <input
                           ref={fileInputRef}
@@ -903,11 +1117,42 @@ const AdminChatWidget = () => {
                         
                         {/* Message input */}
                         <input
+                          ref={messageInputRef}
                           type="text"
-                          placeholder="Type a message..."
+                          placeholder="Type a message... (@mention users)"
                           className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                           value={newMessage}
                           onChange={handleTyping}
+                          onKeyDown={(e) => {
+                            if (showMentionList) {
+                              const filteredUsers = getMentionableUsers().filter(u => 
+                                u.name.toLowerCase().includes(mentionSearch) || 
+                                u.email.toLowerCase().includes(mentionSearch)
+                              );
+                              
+                              if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                setSelectedMentionIndex(prev => 
+                                  prev < filteredUsers.length ? prev + 1 : prev
+                                );
+                              } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                setSelectedMentionIndex(prev => prev > 0 ? prev - 1 : 0);
+                              } else if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (selectedMentionIndex === 0 && selectedChannel) {
+                                  handleMentionSelect({ id: 'everyone', name: 'everyone' });
+                                } else {
+                                  const adjustedIndex = selectedChannel ? selectedMentionIndex - 1 : selectedMentionIndex;
+                                  if (filteredUsers[adjustedIndex]) {
+                                    handleMentionSelect(filteredUsers[adjustedIndex]);
+                                  }
+                                }
+                              } else if (e.key === 'Escape') {
+                                setShowMentionList(false);
+                              }
+                            }
+                          }}
                           disabled={uploading}
                         />
                         

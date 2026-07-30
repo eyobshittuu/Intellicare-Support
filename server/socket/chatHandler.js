@@ -49,7 +49,7 @@ const chatHandler = (io) => {
           return;
         }
 
-        const { recipient_id, channel_id, content, attachments, message_type } = data;
+        const { recipient_id, channel_id, content, attachments, message_type, mentions } = data;
 
         // Validate: must have either recipient_id OR channel_id
         if (!recipient_id && !channel_id) {
@@ -79,7 +79,8 @@ const chatHandler = (io) => {
           channel_id: channel_id || null,
           content: content || null,
           attachments: attachments || null,
-          message_type: message_type || 'text'
+          message_type: message_type || 'text',
+          mentions: mentions || null
         });
 
         // Fetch complete message with user data
@@ -107,12 +108,50 @@ const chatHandler = (io) => {
           // Send to all channel members
           io.to(`channel:${channel_id}`).emit('message:received', completeMessage);
           console.log(`Channel message sent in channel ${channel_id} by user ${socket.userId}`);
+          
+          // Send mention notifications
+          if (mentions && mentions.user_ids && mentions.user_ids.length > 0) {
+            mentions.user_ids.forEach(userId => {
+              io.to(`user:${userId}`).emit('mention:received', {
+                message: completeMessage,
+                channel_id,
+                mentioned_by: socket.userId
+              });
+            });
+          }
+          
+          // Notify everyone in channel if @everyone
+          if (mentions && mentions.everyone) {
+            const channelMembers = await ChannelMember.findAll({
+              where: { channel_id },
+              attributes: ['user_id']
+            });
+            
+            channelMembers.forEach(member => {
+              if (member.user_id !== socket.userId) {
+                io.to(`user:${member.user_id}`).emit('mention:received', {
+                  message: completeMessage,
+                  channel_id,
+                  mentioned_by: socket.userId,
+                  everyone: true
+                });
+              }
+            });
+          }
         } else {
           // Send to sender
           socket.emit('message:received', completeMessage);
           // Send to recipient if online
           io.to(`user:${recipient_id}`).emit('message:received', completeMessage);
           console.log(`Message sent from ${socket.userId} to ${recipient_id}`);
+          
+          // Send mention notification for direct message
+          if (mentions && mentions.user_ids && mentions.user_ids.includes(recipient_id)) {
+            io.to(`user:${recipient_id}`).emit('mention:received', {
+              message: completeMessage,
+              mentioned_by: socket.userId
+            });
+          }
         }
       } catch (error) {
         console.error('Send message error:', error);

@@ -57,6 +57,12 @@ const Message = sequelize.define('Message', {
   message_type: {
     type: DataTypes.ENUM('text', 'file', 'image'),
     defaultValue: 'text'
+  },
+  mentions: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null
+    // Structure: { user_ids: [1, 2, 3], everyone: false }
   }
 }, {
   tableName: 'messages',

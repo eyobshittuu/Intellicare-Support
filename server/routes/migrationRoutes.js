@@ -756,4 +756,74 @@ router.get('/fix-recipient-id-nullable', async (req, res) => {
   }
 });
 
+/**
+ * ADD MENTIONS SUPPORT
+ * 
+ * Add mentions column to messages table for @mentions functionality
+ * GET https://intellicare-support-1.onrender.com/api/migrate/add-mentions-support
+ */
+router.get('/add-mentions-support', async (req, res) => {
+  try {
+    logger.info('🔄 Starting migration: Add mentions support to messages table');
+
+    const dialect = db.getDialect();
+    
+    if (dialect === 'postgres') {
+      await db.query(`
+        DO $$ 
+        BEGIN
+          -- Add mentions column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'messages' AND column_name = 'mentions'
+          ) THEN
+            ALTER TABLE messages ADD COLUMN mentions JSONB DEFAULT NULL;
+            RAISE NOTICE 'Added mentions column';
+          END IF;
+        END $$;
+      `);
+      
+      logger.info('✅ PostgreSQL: Mentions support added successfully');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'PostgreSQL',
+        changes: 'Added mentions column to messages table',
+        note: '@mentions and @everyone functionality is now available'
+      });
+
+    } else if (dialect === 'mysql') {
+      await db.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS mentions JSON DEFAULT NULL`);
+
+      logger.info('✅ MySQL: Mentions support added successfully');
+
+      return res.json({
+        success: true,
+        message: 'Migration completed successfully!',
+        database: 'MySQL',
+        changes: 'Added mentions column to messages table',
+        note: '@mentions and @everyone functionality is now available'
+      });
+
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported database dialect: ${dialect}`
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Migration failed:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message,
+      hint: 'Check server logs for more details. Column might already exist.',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 module.exports = router;
