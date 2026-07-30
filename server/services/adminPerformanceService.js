@@ -257,17 +257,26 @@ class AdminPerformanceService {
   }
 
   async getAverageResponseTime(adminId, dateFilter) {
+    const dialect = Ticket.sequelize.getDialect();
+    
+    let timeDiffExpression;
+    if (dialect === 'postgres') {
+      // PostgreSQL: EXTRACT(EPOCH FROM (started_at - created_at)) / 60
+      timeDiffExpression = Ticket.sequelize.literal(
+        "EXTRACT(EPOCH FROM (started_at - created_at)) / 60"
+      );
+    } else {
+      // MySQL: TIMESTAMPDIFF(MINUTE, created_at, started_at)
+      timeDiffExpression = Ticket.sequelize.literal(
+        'TIMESTAMPDIFF(MINUTE, created_at, started_at)'
+      );
+    }
+
     const result = await Ticket.findOne({
       attributes: [
-        [Ticket.sequelize.fn('AVG', 
-          Ticket.sequelize.literal('TIMESTAMPDIFF(MINUTE, created_at, started_at)')
-        ), 'avg_minutes'],
-        [Ticket.sequelize.fn('MIN', 
-          Ticket.sequelize.literal('TIMESTAMPDIFF(MINUTE, created_at, started_at)')
-        ), 'min_minutes'],
-        [Ticket.sequelize.fn('MAX', 
-          Ticket.sequelize.literal('TIMESTAMPDIFF(MINUTE, created_at, started_at)')
-        ), 'max_minutes']
+        [Ticket.sequelize.fn('AVG', timeDiffExpression), 'avg_minutes'],
+        [Ticket.sequelize.fn('MIN', timeDiffExpression), 'min_minutes'],
+        [Ticket.sequelize.fn('MAX', timeDiffExpression), 'max_minutes']
       ],
       where: {
         assigned_to: adminId,
@@ -291,17 +300,26 @@ class AdminPerformanceService {
   }
 
   async getAverageResolutionTime(adminId, dateFilter) {
+    const dialect = Ticket.sequelize.getDialect();
+    
+    let timeDiffExpression;
+    if (dialect === 'postgres') {
+      // PostgreSQL: EXTRACT(EPOCH FROM (resolved_at - created_at)) / 60
+      timeDiffExpression = Ticket.sequelize.literal(
+        "EXTRACT(EPOCH FROM (resolved_at - created_at)) / 60"
+      );
+    } else {
+      // MySQL: TIMESTAMPDIFF(MINUTE, created_at, resolved_at)
+      timeDiffExpression = Ticket.sequelize.literal(
+        'TIMESTAMPDIFF(MINUTE, created_at, resolved_at)'
+      );
+    }
+
     const result = await Ticket.findOne({
       attributes: [
-        [Ticket.sequelize.fn('AVG', 
-          Ticket.sequelize.literal('TIMESTAMPDIFF(MINUTE, created_at, resolved_at)')
-        ), 'avg_minutes'],
-        [Ticket.sequelize.fn('MIN', 
-          Ticket.sequelize.literal('TIMESTAMPDIFF(MINUTE, created_at, resolved_at)')
-        ), 'min_minutes'],
-        [Ticket.sequelize.fn('MAX', 
-          Ticket.sequelize.literal('TIMESTAMPDIFF(MINUTE, created_at, resolved_at)')
-        ), 'max_minutes']
+        [Ticket.sequelize.fn('AVG', timeDiffExpression), 'avg_minutes'],
+        [Ticket.sequelize.fn('MIN', timeDiffExpression), 'min_minutes'],
+        [Ticket.sequelize.fn('MAX', timeDiffExpression), 'max_minutes']
       ],
       where: {
         assigned_to: adminId,
@@ -469,11 +487,28 @@ class AdminPerformanceService {
   async getTrendData(adminId, dateRange) {
     // Get ticket completion trend over the period
     const period = dateRange || 'month';
-    const dateFormat = period === 'year' ? '%Y-%m' : '%Y-%m-%d';
+    const dialect = Ticket.sequelize.getDialect();
+    
+    let dateFormatExpression;
+    if (dialect === 'postgres') {
+      // PostgreSQL: TO_CHAR(created_at, 'YYYY-MM-DD') or 'YYYY-MM'
+      const format = period === 'year' ? 'YYYY-MM' : 'YYYY-MM-DD';
+      dateFormatExpression = Ticket.sequelize.fn('TO_CHAR', 
+        Ticket.sequelize.col('created_at'), 
+        format
+      );
+    } else {
+      // MySQL: DATE_FORMAT(created_at, '%Y-%m-%d') or '%Y-%m'
+      const format = period === 'year' ? '%Y-%m' : '%Y-%m-%d';
+      dateFormatExpression = Ticket.sequelize.fn('DATE_FORMAT', 
+        Ticket.sequelize.col('created_at'), 
+        format
+      );
+    }
 
     const trends = await Ticket.findAll({
       attributes: [
-        [Ticket.sequelize.fn('DATE_FORMAT', Ticket.sequelize.col('created_at'), dateFormat), 'date'],
+        [dateFormatExpression, 'date'],
         [Ticket.sequelize.fn('COUNT', Ticket.sequelize.col('id')), 'created'],
         [Ticket.sequelize.fn('SUM', 
           Ticket.sequelize.literal("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")
@@ -483,8 +518,8 @@ class AdminPerformanceService {
         assigned_to: adminId,
         ...(this.buildDateFilter(dateRange) || {})
       },
-      group: [Ticket.sequelize.fn('DATE_FORMAT', Ticket.sequelize.col('created_at'), dateFormat)],
-      order: [[Ticket.sequelize.fn('DATE_FORMAT', Ticket.sequelize.col('created_at'), dateFormat), 'ASC']],
+      group: [dateFormatExpression],
+      order: [[dateFormatExpression, 'ASC']],
       raw: true
     });
 
@@ -523,16 +558,31 @@ class AdminPerformanceService {
   }
 
   async getHourlyDistribution(adminId, dateFilter) {
+    const dialect = Ticket.sequelize.getDialect();
+    
+    let hourExpression;
+    if (dialect === 'postgres') {
+      // PostgreSQL: EXTRACT(HOUR FROM created_at)
+      hourExpression = Ticket.sequelize.fn('EXTRACT', 
+        Ticket.sequelize.literal('HOUR FROM created_at')
+      );
+    } else {
+      // MySQL: HOUR(created_at)
+      hourExpression = Ticket.sequelize.fn('HOUR', 
+        Ticket.sequelize.col('created_at')
+      );
+    }
+
     const distribution = await Ticket.findAll({
       attributes: [
-        [Ticket.sequelize.fn('HOUR', Ticket.sequelize.col('created_at')), 'hour'],
+        [hourExpression, 'hour'],
         [Ticket.sequelize.fn('COUNT', Ticket.sequelize.col('id')), 'count']
       ],
       where: {
         assigned_to: adminId,
         ...(dateFilter || {})
       },
-      group: [Ticket.sequelize.fn('HOUR', Ticket.sequelize.col('created_at'))],
+      group: [hourExpression],
       raw: true
     });
 
@@ -543,25 +593,47 @@ class AdminPerformanceService {
   }
 
   async getWeekdayDistribution(adminId, dateFilter) {
+    const dialect = Ticket.sequelize.getDialect();
+    
+    let dayExpression;
+    if (dialect === 'postgres') {
+      // PostgreSQL: EXTRACT(DOW FROM created_at) + 1 (to match MySQL 1-7 where 1=Sunday)
+      dayExpression = Ticket.sequelize.literal(
+        'EXTRACT(DOW FROM created_at) + 1'
+      );
+    } else {
+      // MySQL: DAYOFWEEK(created_at) (returns 1-7 where 1=Sunday)
+      dayExpression = Ticket.sequelize.fn('DAYOFWEEK', 
+        Ticket.sequelize.col('created_at')
+      );
+    }
+
     const distribution = await Ticket.findAll({
       attributes: [
-        [Ticket.sequelize.fn('DAYOFWEEK', Ticket.sequelize.col('created_at')), 'dayOfWeek'],
+        [dayExpression, 'dayOfWeek'],
         [Ticket.sequelize.fn('COUNT', Ticket.sequelize.col('id')), 'count']
       ],
       where: {
         assigned_to: adminId,
         ...(dateFilter || {})
       },
-      group: [Ticket.sequelize.fn('DAYOFWEEK', Ticket.sequelize.col('created_at'))],
+      group: [dayExpression],
       raw: true
     });
 
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-    return distribution.map(d => ({
-      day: dayNames[parseInt(d.dayOfWeek) - 1],
-      count: parseInt(d.count)
-    }));
+    return distribution.map(d => {
+      let dayIndex = parseInt(d.dayOfWeek) - 1;
+      // Handle PostgreSQL DOW which goes 0-6 (we added 1, so now 1-7)
+      if (dayIndex < 0) dayIndex = 6;
+      if (dayIndex > 6) dayIndex = 0;
+      
+      return {
+        day: dayNames[dayIndex],
+        count: parseInt(d.count)
+      };
+    });
   }
 
   async getPerformanceComparison(adminId, dateFilter) {
@@ -614,18 +686,32 @@ class AdminPerformanceService {
     // Get workload trends over time
     const period = dateRange || 'month';
     const dateFilter = this.buildDateFilter(period);
+    const dialect = Ticket.sequelize.getDialect();
+    
+    let dateExpression;
+    if (dialect === 'postgres') {
+      // PostgreSQL: DATE(created_at) or TO_CHAR for date formatting
+      dateExpression = Ticket.sequelize.fn('DATE', 
+        Ticket.sequelize.col('created_at')
+      );
+    } else {
+      // MySQL: DATE(created_at)
+      dateExpression = Ticket.sequelize.fn('DATE', 
+        Ticket.sequelize.col('created_at')
+      );
+    }
 
     const history = await Ticket.findAll({
       attributes: [
-        [Ticket.sequelize.fn('DATE', Ticket.sequelize.col('created_at')), 'date'],
+        [dateExpression, 'date'],
         [Ticket.sequelize.fn('COUNT', Ticket.sequelize.col('id')), 'tickets']
       ],
       where: {
         assigned_to: adminId,
         ...(dateFilter || {})
       },
-      group: [Ticket.sequelize.fn('DATE', Ticket.sequelize.col('created_at'))],
-      order: [[Ticket.sequelize.fn('DATE', Ticket.sequelize.col('created_at')), 'ASC']],
+      group: [dateExpression],
+      order: [[dateExpression, 'ASC']],
       raw: true
     });
 

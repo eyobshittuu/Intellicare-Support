@@ -734,6 +734,21 @@ exports.getAdminWorkload = async (req, res) => {
       attributes: ['id', 'first_name', 'last_name', 'email']
     });
 
+    const dialect = Ticket.sequelize.getDialect();
+    
+    let timeDiffExpression;
+    if (dialect === 'postgres') {
+      // PostgreSQL: EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600
+      timeDiffExpression = Ticket.sequelize.literal(
+        "EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600"
+      );
+    } else {
+      // MySQL: TIMESTAMPDIFF(HOUR, created_at, resolved_at)
+      timeDiffExpression = Ticket.sequelize.literal(
+        'TIMESTAMPDIFF(HOUR, created_at, resolved_at)'
+      );
+    }
+
     const workloadStats = await Promise.all(admins.map(async (admin) => {
       const activeTickets = await Ticket.count({
         where: {
@@ -751,9 +766,7 @@ exports.getAdminWorkload = async (req, res) => {
 
       const avgResolutionTime = await Ticket.findOne({
         attributes: [
-          [Ticket.sequelize.fn('AVG', 
-            Ticket.sequelize.literal('TIMESTAMPDIFF(HOUR, created_at, resolved_at)')
-          ), 'avg_hours']
+          [Ticket.sequelize.fn('AVG', timeDiffExpression), 'avg_hours']
         ],
         where: {
           assigned_to: admin.id,
