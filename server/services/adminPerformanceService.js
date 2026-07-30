@@ -390,9 +390,19 @@ class AdminPerformanceService {
     });
 
     const avgResolution = await this.getAverageResolutionTime(adminId, dateFilter);
-
-    // Calculate quality score (0-100)
-    const qualityScore = this.calculateQualityScore(adminId, dateFilter);
+    
+    // Get difficulty score sum
+    const difficultyResult = await Ticket.findOne({
+      attributes: [
+        [Ticket.sequelize.fn('SUM', Ticket.sequelize.col('difficulty')), 'total_difficulty'],
+        [Ticket.sequelize.fn('AVG', Ticket.sequelize.col('difficulty')), 'avg_difficulty']
+      ],
+      where: {
+        ...whereClause,
+        difficulty: { [Op.ne]: null }
+      },
+      raw: true
+    });
 
     return {
       totalAssigned,
@@ -400,37 +410,51 @@ class AdminPerformanceService {
       rejected,
       finalizationRate: totalAssigned > 0 ? ((finalized / totalAssigned) * 100).toFixed(2) : 0,
       rejectionRate: totalAssigned > 0 ? ((rejected / totalAssigned) * 100).toFixed(2) : 0,
-      avgResolutionHours: avgResolution.hours
+      avgResolutionHours: avgResolution.hours,
+      totalDifficultyScore: parseInt(difficultyResult?.total_difficulty) || 0,
+      avgDifficulty: parseFloat(difficultyResult?.avg_difficulty)?.toFixed(2) || 0
     };
   }
 
   async calculateQualityScore(adminId, dateFilter) {
     try {
-      const [stats, responseTime, resolutionTime] = await Promise.all([
+      const [stats, responseTime, resolutionTime, qualityMetrics] = await Promise.all([
         this.getTicketStats(adminId, dateFilter),
         this.getAverageResponseTime(adminId, dateFilter),
-        this.getAverageResolutionTime(adminId, dateFilter)
+        this.getAverageResolutionTime(adminId, dateFilter),
+        this.getQualityMetrics(adminId, dateFilter)
       ]);
 
       if (stats.total === 0) return 0;
 
       let score = 0;
 
-      // Completion rate (40 points max)
-      score += parseFloat(stats.completionRate) * 0.4;
+      // Completion rate (30 points max) - reduced from 40
+      score += parseFloat(stats.completionRate) * 0.3;
 
-      // Response time (30 points max) - faster is better
+      // Response time (20 points max) - reduced from 30
       const responseHours = parseFloat(responseTime.hours) || 0;
       if (responseHours > 0) {
-        const responseScore = Math.max(0, 30 - (responseHours * 2));
-        score += Math.min(30, responseScore);
+        const responseScore = Math.max(0, 20 - (responseHours * 1.5));
+        score += Math.min(20, responseScore);
       }
 
-      // Resolution time (30 points max) - faster is better
+      // Resolution time (20 points max) - reduced from 30
       const resolutionHours = parseFloat(resolutionTime.hours) || 0;
       if (resolutionHours > 0) {
-        const resolutionScore = Math.max(0, 30 - (resolutionHours / 2));
-        score += Math.min(30, resolutionScore);
+        const resolutionScore = Math.max(0, 20 - (resolutionHours / 3));
+        score += Math.min(20, resolutionScore);
+      }
+
+      // Difficulty score (30 points max) - NEW: based on sum of difficulty ratings
+      // Higher difficulty = higher score (rewards taking harder tickets)
+      const totalDifficulty = qualityMetrics.totalDifficultyScore || 0;
+      const avgDifficulty = parseFloat(qualityMetrics.avgDifficulty) || 0;
+      
+      if (totalDifficulty > 0 && stats.total > 0) {
+        // Score based on average difficulty (max 5.0) scaled to 30 points
+        const difficultyScore = (avgDifficulty / 5.0) * 30;
+        score += Math.min(30, difficultyScore);
       }
 
       return Math.round(Math.min(100, score));

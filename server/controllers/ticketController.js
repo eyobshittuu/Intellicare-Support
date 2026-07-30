@@ -197,25 +197,6 @@ exports.createTicket = async (req, res) => {
     const ticket = await Ticket.create(ticketData);
     console.log('Ticket created with ID:', ticket.id);
 
-    // Auto-assign ticket to best available admin
-    try {
-      const assignedAdminId = await ticketAssignmentService.assignTicket(ticket);
-      if (assignedAdminId) {
-        await ticket.update({ assigned_to: assignedAdminId });
-        console.log('Ticket auto-assigned to admin:', assignedAdminId);
-      } else {
-        console.log('No admin available for auto-assignment');
-      }
-    } catch (assignError) {
-      // Log but don't fail ticket creation if assignment fails
-      console.error('Auto-assignment error:', assignError);
-      logger.error('Ticket auto-assignment failed', {
-        ticketId: ticket.id,
-        error: assignError.message,
-        action: 'AUTO_ASSIGN_ERROR'
-      });
-    }
-
     // Fetch with associations
     const createdTicket = await Ticket.findByPk(ticket.id, {
       include: [
@@ -617,15 +598,22 @@ exports.getAssignmentRecommendations = async (req, res) => {
 
 // @desc    Manually assign ticket to an admin
 // @route   PUT /api/tickets/:id/assign
-// @access  Private (Admin only)
+// @access  Private (Super Admin only)
 exports.assignTicketManually = async (req, res) => {
   try {
-    const { adminId } = req.body;
+    const { adminId, difficulty } = req.body;
 
     if (!adminId) {
       return res.status(400).json({
         success: false,
         message: 'Admin ID is required'
+      });
+    }
+
+    if (difficulty && (difficulty < 1 || difficulty > 5)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Difficulty must be between 1 and 5'
       });
     }
 
@@ -654,7 +642,11 @@ exports.assignTicketManually = async (req, res) => {
       });
     }
 
+    // Update ticket with assignment details
     ticket.assigned_to = adminId;
+    ticket.assigned_by = req.user.id;
+    ticket.assigned_at = new Date();
+    ticket.difficulty = difficulty || null;
     await ticket.save();
 
     // Log manual assignment
@@ -665,6 +657,7 @@ exports.assignTicketManually = async (req, res) => {
       assignedToName: `${admin.first_name} ${admin.last_name}`,
       assignedBy: req.user.id,
       assignedByName: `${req.user.first_name} ${req.user.last_name}`,
+      difficulty: difficulty || null,
       action: 'TICKET_MANUAL_ASSIGN'
     });
 

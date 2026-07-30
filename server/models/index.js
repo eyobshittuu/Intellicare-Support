@@ -40,6 +40,18 @@ User.hasMany(Ticket, {
   onDelete: 'SET NULL'
 });
 
+Ticket.belongsTo(User, {
+  foreignKey: 'assigned_by',
+  as: 'assigner',
+  onDelete: 'SET NULL'  // Keep assignment record when super admin is deleted
+});
+
+User.hasMany(Ticket, {
+  foreignKey: 'assigned_by',
+  as: 'tickets_assigned',
+  onDelete: 'SET NULL'
+});
+
 // Message relationships
 User.hasMany(Message, {
   foreignKey: 'sender_id',

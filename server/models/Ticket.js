@@ -72,6 +72,31 @@ const Ticket = sequelize.define('Ticket', {
     },
     onDelete: 'SET NULL'
   },
+  difficulty: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+    validate: {
+      min: 1,
+      max: 5
+    },
+    comment: 'Difficulty rating from 1 (easiest) to 5 (hardest), set by super admin during assignment'
+  },
+  assigned_by: {
+    type: DataTypes.BIGINT.UNSIGNED,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
+    onDelete: 'SET NULL',
+    comment: 'Super admin who assigned the ticket'
+  },
+  assigned_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When the ticket was assigned to an admin'
+  },
   started_at: {
     type: DataTypes.DATE,
     allowNull: true

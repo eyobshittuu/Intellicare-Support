@@ -42,8 +42,8 @@ router.route('/:id')
 // Finalize ticket route (admin only)
 router.put('/:id/finalize', authorize('admin', 'super_admin'), finalizeTicket);
 
-// Assignment routes (admin only)
-router.get('/:id/recommendations', authorize('admin', 'super_admin'), getAssignmentRecommendations);
-router.put('/:id/assign', authorize('admin', 'super_admin'), assignTicketManually);
+// Assignment routes (super admin only)
+router.get('/:id/recommendations', authorize('super_admin'), getAssignmentRecommendations);
+router.put('/:id/assign', authorize('super_admin'), assignTicketManually);
 
 module.exports = router;
