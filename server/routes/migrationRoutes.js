@@ -67,29 +67,104 @@ router.get('/fix-user-id', async (req, res) => {
   } catch (error) {
     logger.error('❌ Migration failed:', error);
 
-    // Check if column is already nullable
-    if (error.message && error.message.includes('column "user_id" of relation "tickets" does not exist')) {
-      return res.status(400).json({
-        success: false,
-        message: 'Tickets table or user_id column does not exist',
-        error: error.message
-      });
-    }
-
-    // Check if already nullable
-    if (error.message && error.message.includes('already')) {
-      return res.json({
-        success: true,
-        message: 'Migration already completed (user_id is already nullable)',
-        note: 'No changes were needed'
-      });
+    // Check if already nullable (constraint doesn't exist error)
+    if (error.message && (
+      error.message.includes('does not exist') ||
+      error.message.includes('cannot drop not-null constraint') ||
+      error.original?.code === '42804'
+    )) {
+      // Column might already be nullable, let's verify
+      try {
+        const [results] = await db.query(`
+          SELECT is_nullable 
+          FROM information_schema.columns 
+          WHERE table_name = 'tickets' 
+          AND column_name = 'user_id';
+        `);
+        
+        if (results[0]?.is_nullable === 'YES') {
+          return res.json({
+            success: true,
+            message: 'Migration already completed (user_id is already nullable)',
+            note: 'No changes were needed'
+          });
+        }
+      } catch (verifyError) {
+        // Ignore verification error
+      }
     }
 
     return res.status(500).json({
       success: false,
       message: 'Migration failed',
       error: error.message,
+      errorCode: error.original?.code,
+      hint: 'Check Render logs for more details',
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
+ * DIAGNOSE DATABASE ISSUE
+ * 
+ * Get detailed information about the current database state
+ * GET https://intellicare-support-1.onrender.com/api/migrate/diagnose
+ */
+router.get('/diagnose', async (req, res) => {
+  try {
+    const dialect = db.getDialect();
+    
+    if (dialect === 'postgres') {
+      // Get table structure
+      const [constraints] = await db.query(`
+        SELECT 
+          conname as constraint_name,
+          contype as constraint_type,
+          a.attname as column_name
+        FROM pg_constraint c
+        JOIN pg_attribute a ON a.attnum = ANY(c.conkey)
+        WHERE c.conrelid = 'tickets'::regclass
+        AND a.attrelid = 'tickets'::regclass
+        ORDER BY conname;
+      `);
+
+      const [columns] = await db.query(`
+        SELECT 
+          column_name, 
+          is_nullable, 
+          data_type,
+          column_default
+        FROM information_schema.columns 
+        WHERE table_name = 'tickets' 
+        AND column_name IN ('id', 'user_id', 'assigned_to', 'finalized_by')
+        ORDER BY column_name;
+      `);
+
+      return res.json({
+        success: true,
+        database: 'PostgreSQL',
+        columns: columns,
+        constraints: constraints,
+        diagnosis: {
+          user_id_nullable: columns.find(c => c.column_name === 'user_id')?.is_nullable === 'YES',
+          migration_needed: columns.find(c => c.column_name === 'user_id')?.is_nullable !== 'YES'
+        }
+      });
+    } else {
+      return res.json({
+        success: true,
+        database: dialect,
+        message: 'Diagnosis only available for PostgreSQL'
+      });
+    }
+
+  } catch (error) {
+    logger.error('Diagnosis failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Diagnosis failed',
+      error: error.message
     });
   }
 });
