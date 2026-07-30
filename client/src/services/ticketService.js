@@ -40,4 +40,9 @@ export const ticketService = {
     const response = await api.put(`/tickets/${id}/finalize`, { summary });
     return response.data;
   },
+
+  async assignTicket(id, adminId, difficulty) {
+    const response = await api.put(`/tickets/${id}/assign`, { adminId, difficulty });
+    return response.data;
+  },
 };

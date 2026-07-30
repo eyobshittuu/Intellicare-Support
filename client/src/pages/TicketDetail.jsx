@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ticketService } from '../services/ticketService';
+import { userService } from '../services/userService';
 import { 
   ArrowLeft, Calendar, User, Building2, Tag, Clock, Loader2, 
-  Save, FileText, CheckCircle, ClipboardList, Stethoscope, Play, Check
+  Save, FileText, CheckCircle, ClipboardList, Stethoscope, Play, Check, UserPlus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import FileViewer from '../components/FileViewer';
@@ -12,7 +13,7 @@ import FileViewer from '../components/FileViewer';
 const TicketDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isSuperAdmin, user } = useAuth();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('details');
@@ -27,11 +28,26 @@ const TicketDetail = () => {
   });
   const [summary, setSummary] = useState('');
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [admins, setAdmins] = useState([]);
+  const [selectedAdmin, setSelectedAdmin] = useState('');
+  const [difficulty, setDifficulty] = useState(3);
   const [viewingFile, setViewingFile] = useState(null);
+
+  const difficultyLabels = {
+    1: { label: 'Very Easy', desc: 'Basic inquiries, simple issues', color: 'text-green-600' },
+    2: { label: 'Easy', desc: 'Common issues with known solutions', color: 'text-blue-600' },
+    3: { label: 'Medium', desc: 'Requires investigation', color: 'text-yellow-600' },
+    4: { label: 'Hard', desc: 'Complex issues, multiple systems', color: 'text-orange-600' },
+    5: { label: 'Very Hard', desc: 'Critical, unique, requires expertise', color: 'text-red-600' }
+  };
 
   useEffect(() => {
     fetchTicket();
-  }, [id]);
+    if (isSuperAdmin) {
+      fetchAdmins();
+    }
+  }, [id, isSuperAdmin]);
 
   const fetchTicket = async () => {
     try {
@@ -54,6 +70,38 @@ const TicketDetail = () => {
       navigate('/tickets');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAdmins = async () => {
+    try {
+      const data = await userService.getUsers({ role: 'admin' });
+      setAdmins(data.users || []);
+    } catch (error) {
+      console.error('Error fetching admins:', error);
+      toast.error('Failed to load admins');
+    }
+  };
+
+  const handleAssignTicket = async () => {
+    if (!selectedAdmin) {
+      toast.error('Please select an admin');
+      return;
+    }
+
+    try {
+      setUpdating(true);
+      await ticketService.assignTicket(id, selectedAdmin, difficulty);
+      toast.success('Ticket assigned successfully');
+      setShowAssignModal(false);
+      setSelectedAdmin('');
+      setDifficulty(3);
+      fetchTicket();
+    } catch (error) {
+      console.error('Error assigning ticket:', error);
+      toast.error('Failed to assign ticket');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -190,6 +238,17 @@ const TicketDetail = () => {
         
         {isAdmin && (
           <div className="flex gap-3">
+            {/* Super Admin: Assign Button */}
+            {isSuperAdmin && !ticket.assigned_to && (
+              <button
+                onClick={() => setShowAssignModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <UserPlus size={18} />
+                Assign to Admin
+              </button>
+            )}
+            
             {ticket.status === 'pending' && (
               <button
                 onClick={handleStartWorking}
@@ -608,6 +667,48 @@ const TicketDetail = () => {
                   </div>
                 </div>
               )}
+
+              {ticket.assignee && (
+                <div className="flex items-start gap-3">
+                  <User className="text-gray-400 mt-0.5" size={18} />
+                  <div>
+                    <p className="text-xs text-gray-500">Assigned To</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {ticket.assignee.first_name} {ticket.assignee.last_name}
+                    </p>
+                    <p className="text-xs text-gray-500">{ticket.assignee.email}</p>
+                  </div>
+                </div>
+              )}
+
+              {ticket.difficulty && (
+                <div className="flex items-start gap-3">
+                  <Tag className="text-gray-400 mt-0.5" size={18} />
+                  <div>
+                    <p className="text-xs text-gray-500">Difficulty</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${difficultyLabels[ticket.difficulty]?.color || 'text-gray-900'}`}>
+                        {ticket.difficulty}/5
+                      </span>
+                      <span className="text-xs text-gray-600">
+                        ({difficultyLabels[ticket.difficulty]?.label || 'N/A'})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {ticket.assigned_at && (
+                <div className="flex items-start gap-3">
+                  <Calendar className="text-gray-400 mt-0.5" size={18} />
+                  <div>
+                    <p className="text-xs text-gray-500">Assigned At</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatDate(ticket.assigned_at)}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -653,6 +754,110 @@ const TicketDetail = () => {
                 }}
                 disabled={updating}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assignment Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Assign Ticket to Admin</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Select an admin and set the difficulty level for this ticket.
+            </p>
+            
+            {/* Admin Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Admin <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={selectedAdmin}
+                onChange={(e) => setSelectedAdmin(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">-- Choose an admin --</option>
+                {admins.map((admin) => (
+                  <option key={admin.id} value={admin.id}>
+                    {admin.first_name} {admin.last_name} - {admin.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Difficulty Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Difficulty Level <span className="text-red-500">*</span>
+              </label>
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <label
+                    key={level}
+                    className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      difficulty === level
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="difficulty"
+                      value={level}
+                      checked={difficulty === level}
+                      onChange={(e) => setDifficulty(Number(e.target.value))}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`font-bold text-lg ${difficultyLabels[level].color}`}>
+                          {level}
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {difficultyLabels[level].label}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {difficultyLabels[level].desc}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleAssignTicket}
+                disabled={updating || !selectedAdmin}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {updating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Assigning...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={20} />
+                    Assign Ticket
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setSelectedAdmin('');
+                  setDifficulty(3);
+                }}
+                disabled={updating}
+                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium"
               >
                 Cancel
               </button>
