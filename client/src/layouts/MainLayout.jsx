@@ -1,8 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, FileText, TrendingUp } from 'lucide-react';
+import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, FileText, TrendingUp, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
-import AdminChatWidget from '../components/AdminChatWidget';
 
 const MainLayout = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -19,6 +18,7 @@ const MainLayout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Tickets', href: '/tickets', icon: Ticket },
+    ...(isAdmin ? [{ name: 'Chat', href: '/chat', icon: MessageSquare }] : []),
     ...(isAdmin ? [{ name: 'Users', href: '/users', icon: Users }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Performance', href: '/performance', icon: TrendingUp }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'System Logs', href: '/system-logs', icon: FileText }] : []),
@@ -164,18 +164,11 @@ const MainLayout = () => {
       {/* Main Content */}
       <main className={`pt-16 transition-all duration-300 ease-in-out ${
         sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'
-      } lg:pr-96`}>
+      }`}>
         <div className="px-4 sm:px-6 lg:px-8 py-8">
           <Outlet />
         </div>
       </main>
-
-      {/* Admin Chat Sidebar - Only for admins and super admins */}
-      {isAdmin && (
-        <div className="hidden lg:block fixed right-0 top-16 bottom-0 w-96 bg-white border-l border-gray-200 z-20 shadow-xl">
-          <AdminChatWidget />
-        </div>
-      )}
     </div>
   );
 };
