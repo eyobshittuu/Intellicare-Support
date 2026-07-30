@@ -2,6 +2,7 @@ const { Ticket, User } = require('../models');
 const { Op } = require('sequelize');
 const logger = require('../config/logger');
 const { getPublicUrl } = require('../utils/cloudinaryHelper');
+const ticketAssignmentService = require('../services/ticketAssignmentService');
 
 // @desc    Get all tickets (admin sees all, user sees own)
 // @route   GET /api/tickets
@@ -195,6 +196,25 @@ exports.createTicket = async (req, res) => {
 
     const ticket = await Ticket.create(ticketData);
     console.log('Ticket created with ID:', ticket.id);
+
+    // Auto-assign ticket to best available admin
+    try {
+      const assignedAdminId = await ticketAssignmentService.assignTicket(ticket);
+      if (assignedAdminId) {
+        await ticket.update({ assigned_to: assignedAdminId });
+        console.log('Ticket auto-assigned to admin:', assignedAdminId);
+      } else {
+        console.log('No admin available for auto-assignment');
+      }
+    } catch (assignError) {
+      // Log but don't fail ticket creation if assignment fails
+      console.error('Auto-assignment error:', assignError);
+      logger.error('Ticket auto-assignment failed', {
+        ticketId: ticket.id,
+        error: assignError.message,
+        action: 'AUTO_ASSIGN_ERROR'
+      });
+    }
 
     // Fetch with associations
     const createdTicket = await Ticket.findByPk(ticket.id, {
@@ -560,6 +580,212 @@ exports.finalizeTicket = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error finalizing ticket',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get assignment recommendations for a ticket
+// @route   GET /api/tickets/:id/recommendations
+// @access  Private (Admin only)
+exports.getAssignmentRecommendations = async (req, res) => {
+  try {
+    const ticket = await Ticket.findByPk(req.params.id);
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket not found'
+      });
+    }
+
+    const recommendations = await ticketAssignmentService.getAssignmentRecommendations(ticket);
+
+    res.json({
+      success: true,
+      recommendations
+    });
+  } catch (error) {
+    console.error('Get recommendations error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting assignment recommendations',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Manually assign ticket to an admin
+// @route   PUT /api/tickets/:id/assign
+// @access  Private (Admin only)
+exports.assignTicketManually = async (req, res) => {
+  try {
+    const { adminId } = req.body;
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Admin ID is required'
+      });
+    }
+
+    const ticket = await Ticket.findByPk(req.params.id);
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket not found'
+      });
+    }
+
+    // Verify the admin exists and is active
+    const admin = await User.findOne({
+      where: {
+        id: adminId,
+        role: 'admin',
+        is_active: true
+      }
+    });
+
+    if (!admin) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid admin or admin is not active'
+      });
+    }
+
+    ticket.assigned_to = adminId;
+    await ticket.save();
+
+    // Log manual assignment
+    logger.info('Ticket manually assigned', {
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticket_number,
+      assignedTo: adminId,
+      assignedToName: `${admin.first_name} ${admin.last_name}`,
+      assignedBy: req.user.id,
+      assignedByName: `${req.user.first_name} ${req.user.last_name}`,
+      action: 'TICKET_MANUAL_ASSIGN'
+    });
+
+    // Fetch updated ticket with associations
+    const updatedTicket = await Ticket.findByPk(ticket.id, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'first_name', 'last_name', 'email']
+        },
+        {
+          model: User,
+          as: 'assignee',
+          attributes: ['id', 'first_name', 'last_name', 'email']
+        }
+      ]
+    });
+
+    res.json({
+      success: true,
+      message: 'Ticket assigned successfully',
+      ticket: updatedTicket
+    });
+  } catch (error) {
+    console.error('Manual assign error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error assigning ticket',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Rebalance workload across admins
+// @route   POST /api/tickets/rebalance
+// @access  Private (Super Admin only)
+exports.rebalanceWorkload = async (req, res) => {
+  try {
+    const result = await ticketAssignmentService.rebalanceWorkload();
+
+    res.json({
+      success: result.success,
+      message: result.message,
+      rebalanced: result.rebalanced
+    });
+  } catch (error) {
+    console.error('Rebalance workload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error rebalancing workload',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get admin workload statistics
+// @route   GET /api/tickets/admin-workload
+// @access  Private (Admin only)
+exports.getAdminWorkload = async (req, res) => {
+  try {
+    const admins = await User.findAll({
+      where: {
+        role: 'admin',
+        is_active: true
+      },
+      attributes: ['id', 'first_name', 'last_name', 'email']
+    });
+
+    const workloadStats = await Promise.all(admins.map(async (admin) => {
+      const activeTickets = await Ticket.count({
+        where: {
+          assigned_to: admin.id,
+          status: { [Op.in]: ['pending', 'in_progress'] }
+        }
+      });
+
+      const completedTickets = await Ticket.count({
+        where: {
+          assigned_to: admin.id,
+          status: 'completed'
+        }
+      });
+
+      const avgResolutionTime = await Ticket.findOne({
+        attributes: [
+          [Ticket.sequelize.fn('AVG', 
+            Ticket.sequelize.literal('TIMESTAMPDIFF(HOUR, created_at, resolved_at)')
+          ), 'avg_hours']
+        ],
+        where: {
+          assigned_to: admin.id,
+          status: 'completed',
+          resolved_at: { [Op.ne]: null }
+        },
+        raw: true
+      });
+
+      return {
+        adminId: admin.id,
+        adminName: `${admin.first_name} ${admin.last_name}`,
+        email: admin.email,
+        activeTickets,
+        completedTickets,
+        totalTickets: activeTickets + completedTickets,
+        avgResolutionHours: avgResolutionTime?.avg_hours ? parseFloat(avgResolutionTime.avg_hours).toFixed(2) : null
+      };
+    }));
+
+    // Sort by active tickets (descending)
+    workloadStats.sort((a, b) => b.activeTickets - a.activeTickets);
+
+    res.json({
+      success: true,
+      workload: workloadStats
+    });
+  } catch (error) {
+    console.error('Get admin workload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching admin workload',
       error: error.message
     });
   }

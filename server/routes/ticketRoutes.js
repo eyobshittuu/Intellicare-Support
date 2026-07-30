@@ -7,7 +7,11 @@ const {
   updateTicket,
   deleteTicket,
   getStats,
-  finalizeTicket
+  finalizeTicket,
+  getAssignmentRecommendations,
+  assignTicketManually,
+  rebalanceWorkload,
+  getAdminWorkload
 } = require('../controllers/ticketController');
 const { protect, authorize } = require('../middleware/auth');
 const { ticketValidation, handleValidationErrors } = require('../middleware/validator');
@@ -18,6 +22,12 @@ router.use(protect);
 
 // Stats route (admin only)
 router.get('/stats', authorize('admin', 'super_admin'), getStats);
+
+// Admin workload statistics (admin only)
+router.get('/admin-workload', authorize('admin', 'super_admin'), getAdminWorkload);
+
+// Rebalance workload (super admin only)
+router.post('/rebalance', authorize('super_admin'), rebalanceWorkload);
 
 // CRUD routes
 router.route('/')
@@ -31,5 +41,9 @@ router.route('/:id')
 
 // Finalize ticket route (admin only)
 router.put('/:id/finalize', authorize('admin', 'super_admin'), finalizeTicket);
+
+// Assignment routes (admin only)
+router.get('/:id/recommendations', authorize('admin', 'super_admin'), getAssignmentRecommendations);
+router.put('/:id/assign', authorize('admin', 'super_admin'), assignTicketManually);
 
 module.exports = router;
