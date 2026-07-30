@@ -51,27 +51,45 @@ const AdminChatWidget = () => {
   const statusMenuRef = useRef(null);
   const emojiPickerRef = useRef(null);
 
-  // Load admin list
+  // Load admin list and channels
   useEffect(() => {
     if (isOpen) {
       loadAdmins();
+      loadChannels();
     }
   }, [isOpen]);
+
+  // Load channels
+  const loadChannels = async () => {
+    try {
+      const response = await getUserChannels();
+      if (response.success) {
+        setChannels(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading channels:', error);
+      toast.error('Failed to load channels');
+    }
+  };
 
   // Setup socket listeners
   useEffect(() => {
     if (!socket || !isOpen) return;
 
     socket.on('message:received', (message) => {
-      // Update messages if chat is open with this user
-      if (selectedAdmin && 
+      // Direct message
+      if (selectedAdmin && message.recipient_id && 
           (message.sender_id === selectedAdmin.id || message.recipient_id === selectedAdmin.id)) {
         setMessages(prev => [...prev, message]);
         
-        // Mark as read
         if (message.recipient_id === user.id) {
           socket.emit('message:read', { messageId: message.id });
         }
+      }
+      
+      // Channel message
+      if (selectedChannel && message.channel_id === selectedChannel.id) {
+        setMessages(prev => [...prev, message]);
       }
     });
 
@@ -87,6 +105,19 @@ const AdminChatWidget = () => {
       }
     });
 
+    // Channel typing
+    socket.on('channel:typing:start', (data) => {
+      if (selectedChannel && data.channelId === selectedChannel.id) {
+        setTypingUsers(prev => [...new Set([...prev, data.userId])]);
+      }
+    });
+
+    socket.on('channel:typing:stop', (data) => {
+      if (selectedChannel && data.channelId === selectedChannel.id) {
+        setTypingUsers(prev => prev.filter(id => id !== data.userId));
+      }
+    });
+
     socket.on('message:reaction', (data) => {
       setMessages(prev => prev.map(msg => 
         msg.id === data.messageId 
@@ -98,6 +129,20 @@ const AdminChatWidget = () => {
     socket.on('user:status', (data) => {
       setUserStatuses(prev => ({
         ...prev,
+        [data.userId]: data.status
+      }));
+    });
+
+    return () => {
+      socket.off('message:received');
+      socket.off('typing:start');
+      socket.off('typing:stop');
+      socket.off('channel:typing:start');
+      socket.off('channel:typing:stop');
+      socket.off('message:reaction');
+      socket.off('user:status');
+    };
+  }, [socket, isOpen, selectedAdmin, selectedChannel, user]);
         [data.userId]: data.status
       }));
     });
@@ -177,14 +222,63 @@ const AdminChatWidget = () => {
 
   const handleAdminSelect = async (admin) => {
     setSelectedAdmin(admin);
+    setSelectedChannel(null); // Clear channel selection
     setShowUserList(false);
     await loadMessages(admin.id);
+  };
+
+  const handleChannelSelect = async (channel) => {
+    setSelectedChannel(channel);
+    setSelectedAdmin(null); // Clear admin selection
+    setShowUserList(false);
+    await loadChannelMessages(channel.id);
+    
+    // Join channel room for real-time messages
+    if (socket) {
+      socket.emit('channel:join', { channelId: channel.id });
+    }
+  };
+
+  const loadChannelMessages = async (channelId) => {
+    try {
+      const response = await getChannelMessages(channelId);
+      setMessages(response.data);
+    } catch (error) {
+      console.error('Error loading channel messages:', error);
+      toast.error('Failed to load messages');
+    }
+  };
+
+  const handleCreateChannel = async () => {
+    if (!channelForm.name.trim()) {
+      toast.error('Channel name is required');
+      return;
+    }
+
+    try {
+      const response = await createChannel(channelForm);
+      if (response.success) {
+        toast.success('Channel created successfully!');
+        setShowCreateChannelModal(false);
+        setChannelForm({ name: '', description: '', channel_type: 'private', member_ids: [] });
+        await loadChannels();
+        
+        // Join the new channel room via socket
+        if (socket) {
+          socket.emit('channel:join', { channelId: response.data.id });
+        }
+      }
+    } catch (error) {
+      console.error('Error creating channel:', error);
+      toast.error('Failed to create channel');
+    }
   };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if ((!newMessage.trim() && !selectedFile) || !selectedAdmin || !socket) return;
+    if ((!newMessage.trim() && !selectedFile) || !socket) return;
+    if (!selectedAdmin && !selectedChannel) return;
 
     let attachmentData = null;
     let messageType = 'text';
@@ -212,7 +306,27 @@ const AdminChatWidget = () => {
       }
     }
 
-    socket.emit('message:send', {
+    const messageData = {
+      content: newMessage.trim() || null,
+      attachments: attachmentData ? [attachmentData] : null,
+      message_type: messageType
+    };
+
+    // Add recipient or channel ID
+    if (selectedChannel) {
+      messageData.channel_id = selectedChannel.id;
+      // Stop typing in channel
+      socket.emit('channel:typing:stop', { channelId: selectedChannel.id });
+    } else if (selectedAdmin) {
+      messageData.recipient_id = selectedAdmin.id;
+      socket.emit('typing:stop', { recipient_id: selectedAdmin.id });
+    }
+
+    socket.emit('message:send', messageData);
+
+    setNewMessage('');
+    setSelectedFile(null);
+  };
       recipient_id: selectedAdmin.id,
       content: newMessage.trim() || null,
       attachments: attachmentData ? [attachmentData] : null,
@@ -229,10 +343,15 @@ const AdminChatWidget = () => {
   const handleTyping = (e) => {
     setNewMessage(e.target.value);
 
-    if (!socket || !selectedAdmin) return;
+    if (!socket) return;
+    if (!selectedAdmin && !selectedChannel) return;
 
     // Start typing indicator
-    socket.emit('typing:start', { recipient_id: selectedAdmin.id });
+    if (selectedChannel) {
+      socket.emit('channel:typing:start', { channelId: selectedChannel.id });
+    } else if (selectedAdmin) {
+      socket.emit('typing:start', { recipient_id: selectedAdmin.id });
+    }
 
     // Clear existing timeout
     if (typingTimeoutRef.current) {
@@ -241,15 +360,26 @@ const AdminChatWidget = () => {
 
     // Stop typing after 2 seconds
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('typing:stop', { recipient_id: selectedAdmin.id });
+      if (selectedChannel) {
+        socket.emit('channel:typing:stop', { channelId: selectedChannel.id });
+      } else if (selectedAdmin) {
+        socket.emit('typing:stop', { recipient_id: selectedAdmin.id });
+      }
     }, 2000);
   };
 
   const handleBackToList = () => {
     setShowUserList(true);
     setSelectedAdmin(null);
+    setSelectedChannel(null);
     setMessages([]);
     setSelectedFile(null);
+    setTypingUsers([]);
+    
+    // Leave channel room if was in one
+    if (selectedChannel && socket) {
+      socket.emit('channel:leave', { channelId: selectedChannel.id });
+    }
   };
 
   const handleFileSelect = (e) => {
@@ -347,7 +477,16 @@ const AdminChatWidget = () => {
             <div className="flex items-center gap-2">
               <MessageSquare size={20} />
               <h3 className="font-semibold">
-                {selectedAdmin ? `${selectedAdmin.first_name} ${selectedAdmin.last_name}` : 'Admin Chat'}
+                {selectedChannel ? (
+                  <>
+                    <Hash className="inline mr-1" size={16} />
+                    {selectedChannel.name}
+                  </>
+                ) : selectedAdmin ? (
+                  `${selectedAdmin.first_name} ${selectedAdmin.last_name}`
+                ) : (
+                  'Admin Chat'
+                )}
               </h3>
             </div>
             <div className="flex items-center gap-2">
@@ -402,51 +541,142 @@ const AdminChatWidget = () => {
               {/* User List or Chat */}
               {showUserList ? (
                 <div className="flex-1 flex flex-col overflow-hidden">
-                  {/* Search */}
-                  <div className="p-3 border-b border-gray-200">
-                    <input
-                      type="text"
-                      placeholder="Search admins..."
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                  {/* Tabs */}
+                  <div className="border-b border-gray-200">
+                    <div className="flex">
+                      <button
+                        className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
+                          activeTab === 'direct' 
+                            ? 'text-teal-600 border-b-2 border-teal-600 bg-teal-50' 
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        }`}
+                        onClick={() => setActiveTab('direct')}
+                      >
+                        <Users size={16} />
+                        Direct
+                      </button>
+                      <button
+                        className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
+                          activeTab === 'channels' 
+                            ? 'text-teal-600 border-b-2 border-teal-600 bg-teal-50' 
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        }`}
+                        onClick={() => setActiveTab('channels')}
+                      >
+                        <Hash size={16} />
+                        Channels
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Admin List */}
-                  <div className="flex-1 overflow-y-auto">
-                    {filteredAdmins.length === 0 ? (
-                      <div className="p-4 text-center text-gray-500">
-                        <Users className="mx-auto h-12 w-12 text-gray-300 mb-2" />
-                        <p className="text-sm">No admins found</p>
+                  {activeTab === 'direct' ? (
+                    <>
+                      {/* Search */}
+                      <div className="p-3 border-b border-gray-200">
+                        <input
+                          type="text"
+                          placeholder="Search admins..."
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
                       </div>
-                    ) : (
-                      filteredAdmins.map((admin) => (
-                        <div
-                          key={admin.id}
-                          className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 flex items-center gap-3"
-                          onClick={() => handleAdminSelect(admin)}
-                        >
-                          <div className="relative">
-                            <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                              {admin.first_name[0]}{admin.last_name[0]}
+
+                      {/* Admin List */}
+                      <div className="flex-1 overflow-y-auto">
+                        {filteredAdmins.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            <Users className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+                            <p className="text-sm">No admins found</p>
+                          </div>
+                        ) : (
+                          filteredAdmins.map((admin) => (
+                            <div
+                              key={admin.id}
+                              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 flex items-center gap-3"
+                              onClick={() => handleAdminSelect(admin)}
+                            >
+                              <div className="relative">
+                                <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                                  {admin.first_name[0]}{admin.last_name[0]}
+                                </div>
+                                {isUserOnline(admin.id) && (
+                                  <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(getUserStatus(admin.id))}`}></div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">
+                                  {admin.first_name} {admin.last_name}
+                                </p>
+                                <p className="text-xs text-gray-500 truncate">
+                                  {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                                </p>
+                              </div>
                             </div>
-                            {isUserOnline(admin.id) && (
-                              <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(getUserStatus(admin.id))}`}></div>
-                            )}
+                          ))
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Create Channel Button */}
+                      <div className="p-3 border-b border-gray-200">
+                        <button
+                          onClick={() => setShowCreateChannelModal(true)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                        >
+                          <Plus size={18} />
+                          Create Channel
+                        </button>
+                      </div>
+
+                      {/* Channel List */}
+                      <div className="flex-1 overflow-y-auto">
+                        {channels.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            <Hash className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+                            <p className="text-sm">No channels yet</p>
+                            <p className="text-xs mt-1">Create a channel to get started</p>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 truncate">
-                              {admin.first_name} {admin.last_name}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate">
-                              {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                        ) : (
+                          channels.map((membership) => (
+                            <div
+                              key={membership.channel.id}
+                              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                              onClick={() => handleChannelSelect(membership.channel)}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div 
+                                  className="w-10 h-10 rounded flex items-center justify-center text-white font-bold text-lg"
+                                  style={{ backgroundColor: membership.channel.avatar_color }}
+                                >
+                                  #
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium text-gray-800 truncate">
+                                      {membership.channel.name}
+                                    </p>
+                                    {membership.channel.channel_type === 'private' && (
+                                      <span className="text-xs text-gray-500">🔒</span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500">
+                                    {membership.channel.members?.length || 0} members
+                                  </p>
+                                </div>
+                                {membership.unreadCount > 0 && (
+                                  <span className="bg-teal-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                                    {membership.unreadCount}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 // Chat View
@@ -457,7 +687,7 @@ const AdminChatWidget = () => {
                       onClick={handleBackToList}
                       className="text-sm text-teal-600 hover:text-teal-700 font-medium"
                     >
-                      ← Back to admins
+                      ← Back to {activeTab === 'channels' ? 'channels' : 'admins'}
                     </button>
                   </div>
 
@@ -488,6 +718,13 @@ const AdminChatWidget = () => {
                                     : 'bg-white text-gray-800 rounded-bl-none shadow'
                                 }`}
                               >
+                                {/* Sender name for channel messages */}
+                                {selectedChannel && message.sender && (
+                                  <p className={`text-xs font-semibold mb-1 ${isSent ? 'text-teal-100' : 'text-gray-600'}`}>
+                                    {message.sender.first_name} {message.sender.last_name}
+                                  </p>
+                                )}
+                                
                                 {/* Text content */}
                                 {message.content && (
                                   <p className="break-words">{message.content}</p>
@@ -700,6 +937,116 @@ const AdminChatWidget = () => {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Create Channel Modal */}
+      {showCreateChannelModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]" onClick={() => setShowCreateChannelModal(false)}>
+          <div className="bg-white rounded-lg p-6 w-96 max-w-[90vw] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Create New Channel</h3>
+              <button
+                onClick={() => setShowCreateChannelModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Channel Name */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Channel Name *</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="e.g., General Discussion"
+                  value={channelForm.name}
+                  onChange={(e) => setChannelForm({...channelForm, name: e.target.value})}
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  rows="3"
+                  placeholder="What's this channel about?"
+                  value={channelForm.description}
+                  onChange={(e) => setChannelForm({...channelForm, description: e.target.value})}
+                />
+              </div>
+
+              {/* Channel Type */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Channel Type</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  value={channelForm.channel_type}
+                  onChange={(e) => setChannelForm({...channelForm, channel_type: e.target.value})}
+                >
+                  <option value="private">Private (Invite only)</option>
+                  <option value="public">Public (All admins can see)</option>
+                </select>
+              </div>
+
+              {/* Add Members */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Add Members</label>
+                <div className="border border-gray-300 rounded-lg max-h-48 overflow-y-auto">
+                  {admins.length === 0 ? (
+                    <p className="p-3 text-sm text-gray-500 text-center">No admins available</p>
+                  ) : (
+                    admins.map(admin => (
+                      <label key={admin.id} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={channelForm.member_ids.includes(admin.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setChannelForm({
+                                ...channelForm,
+                                member_ids: [...channelForm.member_ids, admin.id]
+                              });
+                            } else {
+                              setChannelForm({
+                                ...channelForm,
+                                member_ids: channelForm.member_ids.filter(id => id !== admin.id)
+                              });
+                            }
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">{admin.first_name} {admin.last_name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowCreateChannelModal(false);
+                  setChannelForm({ name: '', description: '', channel_type: 'private', member_ids: [] });
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateChannel}
+                disabled={!channelForm.name.trim()}
+                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Create
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>
