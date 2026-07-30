@@ -143,18 +143,6 @@ const AdminChatWidget = () => {
       socket.off('user:status');
     };
   }, [socket, isOpen, selectedAdmin, selectedChannel, user]);
-        [data.userId]: data.status
-      }));
-    });
-
-    return () => {
-      socket.off('message:received');
-      socket.off('typing:start');
-      socket.off('typing:stop');
-      socket.off('message:reaction');
-      socket.off('user:status');
-    };
-  }, [socket, isOpen, selectedAdmin, user]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
