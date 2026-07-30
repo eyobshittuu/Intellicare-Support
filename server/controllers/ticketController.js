@@ -129,133 +129,164 @@ exports.getTicket = async (req, res) => {
 // @route   POST /api/tickets
 // @access  Private
 exports.createTicket = async (req, res) => {
-  try {
-    console.log('=== CREATE TICKET DEBUG ===');
-    console.log('Body:', req.body);
-    console.log('Files:', req.files);
-    console.log('User:', req.user?.id);
-    
-    const { title, description, category, hospital, priority } = req.body;
-
-    // Validate required fields
-    if (!title || !description || !hospital) {
-      console.error('Missing required fields:', { title: !!title, description: !!description, hospital: !!hospital });
-      return res.status(400).json({
-        success: false,
-        message: 'Title, description, and hospital are required'
-      });
-    }
-
-    // Handle uploaded files from Cloudinary
-    let attachments = null;
-    if (req.files && req.files.length > 0) {
-      console.log('Processing files:', req.files.length);
-      console.log('File details:', req.files.map(f => ({
-        filename: f.filename,
-        path: f.path,
-        mimetype: f.mimetype
-      })));
+  const MAX_RETRIES = 3;
+  let attempt = 0;
+  
+  while (attempt < MAX_RETRIES) {
+    try {
+      console.log(`=== CREATE TICKET ATTEMPT ${attempt + 1} ===`);
+      console.log('Body:', req.body);
+      console.log('Files:', req.files);
+      console.log('User:', req.user?.id);
       
-      attachments = req.files.map(file => {
-        // Generate appropriate URL based on file type
-        const publicUrl = getPublicUrl(file);
-        console.log('Generated URL for', file.originalname, ':', publicUrl);
-        
-        return {
-          filename: file.filename,
-          originalName: file.originalname,
-          url: publicUrl, // Use signed URL for raw files, direct URL for images
-          publicId: file.filename, // Cloudinary public ID
-          size: file.size,
-          mimetype: file.mimetype,
-          width: file.width,
-          height: file.height,
-          format: file.format,
-          uploadedAt: new Date()
-        };
-      });
-      console.log('Attachments prepared:', JSON.stringify(attachments, null, 2));
-    }
+      const { title, description, category, hospital, priority } = req.body;
 
-    // Generate ticket number - find max existing number to avoid duplicates
-    const lastTicket = await Ticket.findOne({
-      attributes: ['ticket_number'],
-      order: [['id', 'DESC']],
-      limit: 1
-    });
-    
-    let nextNumber = 1;
-    if (lastTicket && lastTicket.ticket_number) {
-      // Extract number from TKT-XXXXX format
-      const match = lastTicket.ticket_number.match(/TKT-(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1]) + 1;
+      // Validate required fields
+      if (!title || !description || !hospital) {
+        console.error('Missing required fields:', { title: !!title, description: !!description, hospital: !!hospital });
+        return res.status(400).json({
+          success: false,
+          message: 'Title, description, and hospital are required'
+        });
       }
-    }
-    
-    const ticket_number = `TKT-${String(nextNumber).padStart(5, '0')}`;
-    console.log('Generated ticket number:', ticket_number, '(last:', lastTicket?.ticket_number, ')');
 
-    const ticketData = {
-      ticket_number,
-      title,
-      description,
-      category,
-      hospital,
-      priority: priority || 'medium',
-      user_id: req.user.id,
-      attachments
-    };
-    console.log('Creating ticket with data:', JSON.stringify(ticketData, null, 2));
+      // Handle uploaded files from Cloudinary
+      let attachments = null;
+      if (req.files && req.files.length > 0) {
+        console.log('Processing files:', req.files.length);
+        console.log('File details:', req.files.map(f => ({
+          filename: f.filename,
+          path: f.path,
+          mimetype: f.mimetype
+        })));
+        
+        attachments = req.files.map(file => {
+          // Generate appropriate URL based on file type
+          const publicUrl = getPublicUrl(file);
+          console.log('Generated URL for', file.originalname, ':', publicUrl);
+          
+          return {
+            filename: file.filename,
+            originalName: file.originalname,
+            url: publicUrl, // Use signed URL for raw files, direct URL for images
+            publicId: file.filename, // Cloudinary public ID
+            size: file.size,
+            mimetype: file.mimetype,
+            width: file.width,
+            height: file.height,
+            format: file.format,
+            uploadedAt: new Date()
+          };
+        });
+        console.log('Attachments prepared:', JSON.stringify(attachments, null, 2));
+      }
 
-    const ticket = await Ticket.create(ticketData);
-    console.log('Ticket created with ID:', ticket.id);
-
-    // Fetch with associations
-    const createdTicket = await Ticket.findByPk(ticket.id, {
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'first_name', 'last_name', 'email']
+      // Generate ticket number - find max existing number to avoid duplicates
+      const lastTicket = await Ticket.findOne({
+        attributes: ['ticket_number'],
+        order: [['id', 'DESC']],
+        limit: 1
+      });
+      
+      let nextNumber = 1;
+      if (lastTicket && lastTicket.ticket_number) {
+        // Extract number from TKT-XXXXX format
+        const match = lastTicket.ticket_number.match(/TKT-(\d+)/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
         }
-      ]
-    });
+      }
+      
+      // Add attempt offset to avoid collisions on retry
+      if (attempt > 0) {
+        nextNumber += attempt;
+      }
+      
+      const ticket_number = `TKT-${String(nextNumber).padStart(5, '0')}`;
+      console.log('Generated ticket number:', ticket_number, '(last:', lastTicket?.ticket_number, ', attempt:', attempt + 1, ')');
 
-    // Log ticket creation
-    logger.info('Ticket created', {
-      ticketId: ticket.id,
-      ticketNumber: ticket.ticket_number,
-      title: ticket.title,
-      category: ticket.category,
-      priority: ticket.priority,
-      userId: req.user.id,
-      userName: `${req.user.first_name} ${req.user.last_name}`,
-      hospital: ticket.hospital,
-      hasAttachments: attachments ? attachments.length : 0,
-      action: 'TICKET_CREATE'
-    });
+      const ticketData = {
+        ticket_number,
+        title,
+        description,
+        category,
+        hospital,
+        priority: priority || 'medium',
+        user_id: req.user.id,
+        attachments
+      };
+      console.log('Creating ticket with data:', JSON.stringify(ticketData, null, 2));
 
-    console.log('Ticket fetched with associations');
-    res.status(201).json({
-      success: true,
-      message: 'Ticket created successfully',
-      ticket: createdTicket
-    });
-  } catch (error) {
-    console.error('=== CREATE TICKET ERROR ===');
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    console.error('Error name:', error.name);
-    if (error.original) {
-      console.error('Original error:', error.original);
+      const ticket = await Ticket.create(ticketData);
+      console.log('Ticket created with ID:', ticket.id);
+
+      // Fetch with associations
+      const createdTicket = await Ticket.findByPk(ticket.id, {
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'first_name', 'last_name', 'email']
+          }
+        ]
+      });
+
+      // Log ticket creation
+      logger.info('Ticket created', {
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticket_number,
+        title: ticket.title,
+        category: ticket.category,
+        priority: ticket.priority,
+        userId: req.user.id,
+        userName: `${req.user.first_name} ${req.user.last_name}`,
+        hospital: ticket.hospital,
+        hasAttachments: attachments ? attachments.length : 0,
+        action: 'TICKET_CREATE'
+      });
+
+      console.log('Ticket fetched with associations');
+      return res.status(201).json({
+        success: true,
+        message: 'Ticket created successfully',
+        ticket: createdTicket
+      });
+      
+    } catch (error) {
+      console.error(`=== CREATE TICKET ERROR (Attempt ${attempt + 1}) ===`);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('Error name:', error.name);
+      if (error.original) {
+        console.error('Original error:', error.original);
+      }
+      
+      // Check if it's a duplicate key error
+      const isDuplicateError = error.name === 'SequelizeUniqueConstraintError' || 
+                               (error.original && error.original.code === '23505');
+      
+      if (isDuplicateError && attempt < MAX_RETRIES - 1) {
+        // Retry with next number
+        console.log('Duplicate ticket number detected, retrying...');
+        attempt++;
+        await new Promise(resolve => setTimeout(resolve, 100 * attempt)); // Small delay
+        continue;
+      }
+      
+      // If not duplicate error or max retries reached, return error
+      return res.status(500).json({
+        success: false,
+        message: 'Error creating ticket',
+        error: error.message
+      });
     }
-    res.status(500).json({
-      success: false,
-      message: 'Error creating ticket',
-      error: error.message
-    });
   }
+  
+  // Should never reach here, but just in case
+  return res.status(500).json({
+    success: false,
+    message: 'Failed to create ticket after multiple attempts'
+  });
 };
 
 // @desc    Update ticket
