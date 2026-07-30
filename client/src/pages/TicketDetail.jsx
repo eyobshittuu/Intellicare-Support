@@ -128,8 +128,9 @@ const TicketDetail = () => {
       return ticket.assigned_to || null;
     }
     
-    // If user is admin/super_admin, chat with ticket creator
-    if (isAdmin) {
+    // If user is the ASSIGNED admin, chat with ticket creator
+    // Super admin can only chat if they are the assigned admin
+    if (isAdmin && ticket.assigned_to === user.id) {
       return ticket.user_id || null;
     }
     
@@ -144,8 +145,9 @@ const TicketDetail = () => {
       return ticket.assignee || null;
     }
     
-    // If user is admin/super_admin, chat with ticket creator
-    if (isAdmin) {
+    // If user is the ASSIGNED admin, chat with ticket creator
+    // Super admin can only chat if they are the assigned admin
+    if (isAdmin && ticket.assigned_to === user.id) {
       return ticket.user || null;
     }
     
@@ -768,6 +770,8 @@ const TicketDetail = () => {
                         <p className="text-sm mt-2">
                           {ticket.user_id === user.id 
                             ? 'This ticket has not been assigned to an admin yet.' 
+                            : ticket.assigned_to !== user.id
+                            ? 'Only the assigned admin can chat with the ticket creator.'
                             : 'The ticket creator is no longer available.'}
                         </p>
                       </div>
