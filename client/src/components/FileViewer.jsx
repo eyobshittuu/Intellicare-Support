@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { X, Download, ZoomIn, ZoomOut, Loader2, AlertCircle, Search, Maximize, Minimize, ChevronUp, ChevronDown, RotateCw } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Configure PDF.js worker - using https for better compatibility
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const FileViewer = ({ file, onClose }) => {
   const [loading, setLoading] = useState(true);
@@ -352,11 +354,27 @@ const FileViewer = ({ file, onClose }) => {
               {/* PDF Viewer */}
               {fileType === 'pdf' && (
                 <Document
-                  file={content}
+                  file={{
+                    url: content,
+                    httpHeaders: {
+                      'Accept': 'application/pdf',
+                    },
+                    withCredentials: false,
+                  }}
                   onLoadSuccess={onDocumentLoadSuccess}
+                  onLoadError={(error) => {
+                    console.error('PDF load error:', error);
+                    setError('Failed to load PDF. Please try downloading instead.');
+                  }}
+                  options={{
+                    cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
+                    cMapPacked: true,
+                    standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
+                  }}
                   loading={
                     <div className="flex items-center justify-center p-8">
                       <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+                      <span className="ml-2 text-gray-600">Loading PDF...</span>
                     </div>
                   }
                   error={
@@ -411,8 +429,8 @@ const FileViewer = ({ file, onClose }) => {
                                 pageNumber={index + 1}
                                 scale={scale}
                                 rotate={rotation}
-                                renderTextLayer={false}
-                                renderAnnotationLayer={false}
+                                renderTextLayer={true}
+                                renderAnnotationLayer={true}
                                 className="pdf-page"
                               />
                             </div>

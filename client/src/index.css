@@ -73,11 +73,31 @@ body {
 }
 
 .react-pdf__Page__textContent {
-  display: none; /* Hide text layer completely */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 0.2;
+  line-height: 1;
+}
+
+.react-pdf__Page__textContent span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
 }
 
 .react-pdf__Page__annotations {
-  display: none; /* Hide annotations */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
 }
 
 /* Excel/CSV table styles */
