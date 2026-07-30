@@ -12,12 +12,14 @@ router.post('/', channelController.createChannel);
 router.get('/', channelController.getUserChannels);
 router.get('/:channelId', channelController.getChannel);
 router.put('/:channelId', channelController.updateChannel);
-router.delete('/:channelId/archive', channelController.archiveChannel);
+router.delete('/:channelId', channelController.deleteChannel); // Permanent delete
+router.delete('/:channelId/archive', channelController.archiveChannel); // Soft delete
 
 // Channel messages
 router.get('/:channelId/messages', channelController.getChannelMessages);
 
 // Channel members
+router.get('/:channelId/members', channelController.getChannelMembers);
 router.post('/:channelId/members', channelController.addChannelMembers);
 router.delete('/:channelId/members/:memberId', channelController.removeChannelMember);
 

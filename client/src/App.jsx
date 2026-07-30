@@ -13,6 +13,7 @@ import Users from './pages/admin/Users'
 import CreateAdmin from './pages/admin/CreateAdmin'
 import SystemLogs from './pages/admin/SystemLogs'
 import Performance from './pages/admin/Performance'
+import Channels from './pages/admin/Channels'
 import Profile from './pages/Profile'
 import Chat from './pages/Chat'
 
@@ -104,6 +105,14 @@ function App() {
             />
             
             {/* Super Admin Only Routes */}
+            <Route
+              path="/channels"
+              element={
+                <ProtectedRoute superAdminOnly>
+                  <Channels />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/users/create-admin"
               element={

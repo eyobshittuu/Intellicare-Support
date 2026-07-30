@@ -30,6 +30,18 @@ export const updateChannel = async (channelId, updates) => {
   return response.data;
 };
 
+// Delete channel (permanent)
+export const deleteChannel = async (channelId) => {
+  const response = await api.delete(`/channels/${channelId}`);
+  return response.data;
+};
+
+// Get channel members
+export const getChannelMembers = async (channelId) => {
+  const response = await api.get(`/channels/${channelId}/members`);
+  return response.data;
+};
+
 // Add members to channel
 export const addChannelMembers = async (channelId, memberIds) => {
   const response = await api.post(`/channels/${channelId}/members`, { member_ids: memberIds });

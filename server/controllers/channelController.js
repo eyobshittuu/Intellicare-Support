@@ -459,6 +459,118 @@ exports.updateChannel = async (req, res) => {
   }
 };
 
+// Delete channel (permanent)
+exports.deleteChannel = async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const userId = req.user.id;
+
+    // Only super_admin or owner can delete
+    const membership = await ChannelMember.findOne({
+      where: {
+        channel_id: channelId,
+        user_id: userId
+      }
+    });
+
+    if (!membership) {
+      return res.status(404).json({
+        success: false,
+        message: 'Channel not found or you are not a member'
+      });
+    }
+
+    // Check if user is super_admin or channel owner
+    const user = await User.findByPk(userId);
+    if (user.role !== 'super_admin' && membership.role !== 'owner') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only channel owner or super admin can delete the channel'
+      });
+    }
+
+    const channel = await Channel.findByPk(channelId);
+    if (!channel) {
+      return res.status(404).json({
+        success: false,
+        message: 'Channel not found'
+      });
+    }
+
+    // Delete all messages in the channel
+    await Message.destroy({ where: { channel_id: channelId } });
+
+    // Delete all members
+    await ChannelMember.destroy({ where: { channel_id: channelId } });
+
+    // Delete the channel
+    await channel.destroy();
+
+    res.json({
+      success: true,
+      message: 'Channel deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete channel error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting channel',
+      error: error.message
+    });
+  }
+};
+
+// Get channel members
+exports.getChannelMembers = async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const userId = req.user.id;
+
+    // Check if user is a member or admin
+    const user = await User.findByPk(userId);
+    const membership = await ChannelMember.findOne({
+      where: {
+        channel_id: channelId,
+        user_id: userId
+      }
+    });
+
+    if (!membership && user.role !== 'super_admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view channel members'
+      });
+    }
+
+    const members = await ChannelMember.findAll({
+      where: { channel_id: channelId },
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'first_name', 'last_name', 'email', 'username', 'role']
+        }
+      ],
+      order: [
+        ['role', 'ASC'], // owner, admin, member
+        ['joined_at', 'ASC']
+      ]
+    });
+
+    res.json({
+      success: true,
+      data: members
+    });
+  } catch (error) {
+    console.error('Get channel members error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching channel members',
+      error: error.message
+    });
+  }
+};
+
 // Archive channel
 exports.archiveChannel = async (req, res) => {
   try {
