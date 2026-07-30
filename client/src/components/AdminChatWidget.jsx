@@ -316,7 +316,7 @@ const AdminChatWidget = () => {
     setSelectedFile(null);
   };
 
-  const handleTyping = (e) => {  const handleTyping = (e) => {
+  const handleTyping = (e) => {
     setNewMessage(e.target.value);
 
     if (!socket) return;
