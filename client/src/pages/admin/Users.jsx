@@ -13,21 +13,25 @@ const Users = () => {
   const [ticketStats, setTicketStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState(null);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState({
     role: '',
-    search: ''
+    search: '',
+    limit: 50  // Increase default limit to 50
   });
 
   useEffect(() => {
     fetchUsers();
     fetchTicketStats();
-  }, [filters]);
+  }, [filters, currentPage]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const data = await userService.getUsers(filters);
+      const data = await userService.getUsers({ ...filters, page: currentPage });
       setUsers(data.users);
+      setTotalUsers(data.total || data.users.length);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
@@ -78,8 +82,10 @@ const Users = () => {
   const clearFilters = () => {
     setFilters({
       role: '',
-      search: ''
+      search: '',
+      limit: 50
     });
+    setCurrentPage(1);
   };
 
   const getRoleIcon = (role) => {
@@ -341,10 +347,35 @@ const Users = () => {
         )}
       </div>
 
-      {/* Users Count */}
+      {/* Users Count & Pagination */}
       {!loading && users.length > 0 && (
-        <div className="text-center text-sm text-gray-500">
-          Showing {users.length} user{users.length !== 1 ? 's' : ''}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            Showing {users.length} of {totalUsers} user{totalUsers !== 1 ? 's' : ''}
+          </div>
+          
+          {/* Pagination */}
+          {totalUsers > filters.limit && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-700">
+                Page {currentPage} of {Math.ceil(totalUsers / filters.limit)}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => p + 1)}
+                disabled={currentPage >= Math.ceil(totalUsers / filters.limit)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
 
