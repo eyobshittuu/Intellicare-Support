@@ -352,6 +352,37 @@ export const NotificationProvider = ({ children }) => {
     activeConversation
   };
 
+  // Expose debug info to window for troubleshooting
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__NOTIFICATION_DEBUG__ = {
+        unreadCounts,
+        activeConversation,
+        notificationsEnabled,
+        notificationPermission,
+        isSocketConnected: !!socket,
+        manualIncrement: (type, id) => {
+          console.log(`[DEBUG] Manually incrementing ${type}:${id}`);
+          incrementUnread(type, id);
+        },
+        manualClear: (type, id) => {
+          console.log(`[DEBUG] Manually clearing ${type}:${id}`);
+          clearUnread(type, id);
+        },
+        getState: () => {
+          console.log('=== NOTIFICATION SYSTEM STATE ===');
+          console.log('Unread Counts:', unreadCounts);
+          console.log('Active Conversation:', activeConversation);
+          console.log('Notifications Enabled:', notificationsEnabled);
+          console.log('Permission:', notificationPermission);
+          console.log('Socket Connected:', !!socket);
+          console.log('User:', user?.id);
+          console.log('================================');
+        }
+      };
+    }
+  }, [unreadCounts, activeConversation, notificationsEnabled, notificationPermission, socket, user]);
+
   return (
     <NotificationContext.Provider value={value}>
       {children}
