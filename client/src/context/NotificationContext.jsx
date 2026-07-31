@@ -181,7 +181,12 @@ export const NotificationProvider = ({ children }) => {
 
   // Listen for new messages and show notifications
   useEffect(() => {
-    if (!socket || !user) return;
+    if (!socket || !user) {
+      console.log('[NotificationContext] Socket or user not ready');
+      return;
+    }
+
+    console.log('[NotificationContext] Setting up socket listeners');
 
     const handleNewMessage = (message) => {
       console.log('[NotificationContext] Message received:', message);
@@ -228,10 +233,30 @@ export const NotificationProvider = ({ children }) => {
       // Increment unread count
       if (isChannel) {
         console.log('[NotificationContext] Incrementing unread for channel:', channelId);
-        incrementUnread('channel', channelId);
+        setUnreadCounts(prev => {
+          const newCounts = { ...prev };
+          newCounts.channels = {
+            ...prev.channels,
+            [channelId]: (prev.channels[channelId] || 0) + 1
+          };
+          newCounts.total = 
+            Object.values(newCounts.direct).reduce((sum, count) => sum + count, 0) +
+            Object.values(newCounts.channels).reduce((sum, count) => sum + count, 0);
+          return newCounts;
+        });
       } else {
         console.log('[NotificationContext] Incrementing unread for user:', senderId);
-        incrementUnread('direct', senderId);
+        setUnreadCounts(prev => {
+          const newCounts = { ...prev };
+          newCounts.direct = {
+            ...prev.direct,
+            [senderId]: (prev.direct[senderId] || 0) + 1
+          };
+          newCounts.total = 
+            Object.values(newCounts.direct).reduce((sum, count) => sum + count, 0) +
+            Object.values(newCounts.channels).reduce((sum, count) => sum + count, 0);
+          return newCounts;
+        });
       }
 
       // Show notification if enabled and page is not visible
@@ -288,7 +313,6 @@ export const NotificationProvider = ({ children }) => {
       }
     };
 
-    console.log('[NotificationContext] Setting up socket listeners');
     // Socket listeners
     socket.on('message:received', handleNewMessage);
     socket.on('mention:received', handleMention);
@@ -298,7 +322,7 @@ export const NotificationProvider = ({ children }) => {
       socket.off('message:received', handleNewMessage);
       socket.off('mention:received', handleMention);
     };
-  }, [socket, user, notificationsEnabled, incrementUnread, activeConversation]);
+  }, [socket, user?.id, notificationsEnabled, activeConversation.type, activeConversation.id]); // Fixed dependencies
 
   // Listen for notification clicks
   useEffect(() => {
