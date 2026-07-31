@@ -40,8 +40,15 @@ const Dashboard = () => {
         // Super admin sees all tickets stats
         const statsData = await ticketService.getStats();
         setStats(statsData);
+        
+        // Fetch initial tickets (pending)
+        const ticketsData = await ticketService.getTickets({ 
+          status: 'pending', 
+          limit: 10
+        });
+        setTickets(ticketsData.tickets || []);
       } else {
-        // Regular admin sees only their assigned tickets
+        // Regular admin sees only their active assigned tickets (pending + in_progress)
         const assignedTicketsData = await ticketService.getTickets({ 
           assigned_to: user?.id,
           limit: 1000 // Get all to calculate stats
@@ -49,25 +56,13 @@ const Dashboard = () => {
         
         const assignedTickets = assignedTicketsData.tickets || [];
         
-        // Calculate stats from assigned tickets only
-        const calculatedStats = {
-          total: assignedTickets.length,
-          pending: assignedTickets.filter(t => t.status === 'pending').length,
-          in_progress: assignedTickets.filter(t => t.status === 'in_progress').length,
-          completed: assignedTickets.filter(t => t.status === 'completed').length,
-          rejected: assignedTickets.filter(t => t.status === 'rejected').length,
-        };
+        // Filter only active tickets (pending and in_progress) for display
+        const activeTickets = assignedTickets.filter(
+          t => t.status === 'pending' || t.status === 'in_progress'
+        );
         
-        setStats(calculatedStats);
+        setTickets(activeTickets);
       }
-
-      // Fetch initial tickets (pending)
-      const ticketsData = await ticketService.getTickets({ 
-        status: 'pending', 
-        limit: 10,
-        ...(user?.role === 'admin' && { assigned_to: user?.id }) // Filter by assigned_to for regular admins
-      });
-      setTickets(ticketsData.tickets || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load data');
     } finally {
@@ -212,6 +207,46 @@ const Dashboard = () => {
           </Link>
         </div>
       </div>
+
+      {/* Active Assigned Tickets - Regular Admin Only */}
+      {user?.role === 'admin' && (
+        <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+              Your Active Tickets
+            </h2>
+            <span className="text-xs sm:text-sm text-gray-600">
+              {tickets.length} {tickets.length === 1 ? 'ticket' : 'tickets'}
+            </span>
+          </div>
+          
+          {loading ? (
+            <div className="flex items-center justify-center py-8 sm:py-12">
+              <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-teal-600" />
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 text-sm sm:text-base text-red-800">
+              {error}
+            </div>
+          ) : tickets.length === 0 ? (
+            <div className="text-center py-8 sm:py-12">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full mb-3 sm:mb-4">
+                <Ticket className="text-gray-400" size={24} />
+              </div>
+              <p className="text-sm sm:text-base text-gray-500">No active tickets assigned</p>
+              <p className="text-xs sm:text-sm text-gray-400 mt-1">
+                Completed or rejected tickets are hidden from this view
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {tickets.map(ticket => (
+                <TicketCard key={ticket.id} ticket={ticket} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Statistics - Super Admin Only - Mobile Optimized */}
       {user?.role === 'super_admin' && stats && (
