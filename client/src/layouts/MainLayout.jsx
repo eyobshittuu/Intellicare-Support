@@ -121,14 +121,23 @@ const MainLayout = () => {
                   }`}
                   title={!sidebarOpen ? item.name : ''}
                 >
-                  <Icon size={20} className="flex-shrink-0" />
-                  <span className={`transition-opacity duration-200 ${
+                  <div className="relative flex-shrink-0">
+                    <Icon size={20} />
+                    {/* Badge on icon when sidebar is collapsed */}
+                    {item.name === 'Chat' && unreadCounts.total > 0 && !sidebarOpen && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center border-2 border-gray-900 animate-pulse">
+                        {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`flex-1 transition-opacity duration-200 ${
                     sidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'
                   }`}>
                     {item.name}
                   </span>
-                  {item.name === 'Chat' && unreadCounts.total > 0 && (
-                    <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {/* Badge at the end when sidebar is expanded */}
+                  {item.name === 'Chat' && unreadCounts.total > 0 && sidebarOpen && (
+                    <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse">
                       {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
                     </span>
                   )}
