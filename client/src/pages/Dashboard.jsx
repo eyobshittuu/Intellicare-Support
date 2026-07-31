@@ -32,12 +32,41 @@ const Dashboard = () => {
 
   const fetchAdminData = async () => {
     try {
-      // Fetch stats
-      const statsData = await ticketService.getStats();
-      setStats(statsData);
+      // For regular admins, only fetch their assigned tickets
+      // For super admins, fetch all tickets
+      const isSuperAdmin = user?.role === 'super_admin';
+      
+      if (isSuperAdmin) {
+        // Super admin sees all tickets stats
+        const statsData = await ticketService.getStats();
+        setStats(statsData);
+      } else {
+        // Regular admin sees only their assigned tickets
+        const assignedTicketsData = await ticketService.getTickets({ 
+          assigned_to: user?.id,
+          limit: 1000 // Get all to calculate stats
+        });
+        
+        const assignedTickets = assignedTicketsData.tickets || [];
+        
+        // Calculate stats from assigned tickets only
+        const calculatedStats = {
+          total: assignedTickets.length,
+          pending: assignedTickets.filter(t => t.status === 'pending').length,
+          in_progress: assignedTickets.filter(t => t.status === 'in_progress').length,
+          completed: assignedTickets.filter(t => t.status === 'completed').length,
+          rejected: assignedTickets.filter(t => t.status === 'rejected').length,
+        };
+        
+        setStats(calculatedStats);
+      }
 
       // Fetch initial tickets (pending)
-      const ticketsData = await ticketService.getTickets({ status: 'pending', limit: 10 });
+      const ticketsData = await ticketService.getTickets({ 
+        status: 'pending', 
+        limit: 10,
+        ...(user?.role === 'admin' && { assigned_to: user?.id }) // Filter by assigned_to for regular admins
+      });
       setTickets(ticketsData.tickets || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load data');
@@ -49,7 +78,11 @@ const Dashboard = () => {
   const fetchTicketsByStatus = async (status) => {
     try {
       setLoading(true);
-      const ticketsData = await ticketService.getTickets({ status, limit: 10 });
+      const ticketsData = await ticketService.getTickets({ 
+        status, 
+        limit: 10,
+        ...(user?.role === 'admin' && { assigned_to: user?.id }) // Filter by assigned_to for regular admins
+      });
       setTickets(ticketsData.tickets || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load tickets');
@@ -148,7 +181,12 @@ const Dashboard = () => {
           Welcome, {user?.first_name}! 👋
         </h1>
         <p className="text-sm sm:text-base text-gray-600 mt-1">
-          {isAdmin ? 'Admin Dashboard - Overview of all tickets' : 'Your personal dashboard'}
+          {user?.role === 'super_admin' 
+            ? 'Super Admin Dashboard - Overview of all tickets' 
+            : user?.role === 'admin'
+            ? 'Your assigned tickets - Overview of tickets assigned to you'
+            : 'Your personal dashboard'
+          }
         </p>
       </div>
 

@@ -6,13 +6,14 @@ import { Plus, Search, Filter, Eye, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Tickets = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     status: '',
     priority: '',
-    search: ''
+    search: '',
+    ...(user?.role === 'admin' && { assigned_to: user?.id }) // Auto-filter for regular admins
   });
 
   useEffect(() => {
@@ -44,7 +45,8 @@ const Tickets = () => {
     setFilters({
       status: '',
       priority: '',
-      search: ''
+      search: '',
+      ...(user?.role === 'admin' && { assigned_to: user?.id }) // Keep assigned_to filter for regular admins
     });
   };
 

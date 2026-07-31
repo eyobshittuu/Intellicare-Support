@@ -19,9 +19,10 @@ const MainLayout = () => {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Tickets', href: '/tickets', icon: Ticket },
+    ...(user?.role !== 'user' ? [{ name: 'Tickets', href: '/tickets', icon: Ticket }] : []), // Admins see tickets
     ...(isAdmin ? [{ name: 'Chat', href: '/chat', icon: MessageSquare }] : []),
-    ...(isAdmin ? [{ name: 'Users', href: '/users', icon: Users }] : []),
+    // Super admin only features
+    ...(user?.role === 'super_admin' ? [{ name: 'Users', href: '/users', icon: Users }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Registrations', href: '/registrations', icon: UserCog }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Channels', href: '/channels', icon: Hash }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Performance', href: '/performance', icon: TrendingUp }] : []),
