@@ -12,6 +12,13 @@ import {
 import { toast } from 'sonner';
 import FileViewer from '../components/FileViewer';
 
+const PRIORITIES = [
+  { value: 'low', label: 'Low', color: 'bg-gray-100 text-gray-800', desc: 'Can wait, non-urgent' },
+  { value: 'medium', label: 'Medium', color: 'bg-blue-100 text-blue-800', desc: 'Normal priority, standard response' },
+  { value: 'high', label: 'High', color: 'bg-orange-100 text-orange-800', desc: 'Important, needs quick attention' },
+  { value: 'urgent', label: 'Urgent', color: 'bg-red-100 text-red-800', desc: 'Critical, immediate action required' }
+];
+
 const TicketDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -34,6 +41,7 @@ const TicketDetail = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [admins, setAdmins] = useState([]);
   const [selectedAdmin, setSelectedAdmin] = useState('');
+  const [selectedPriority, setSelectedPriority] = useState('medium');
   const [difficulty, setDifficulty] = useState(3);
   const [viewingFile, setViewingFile] = useState(null);
   
@@ -249,10 +257,11 @@ const TicketDetail = () => {
 
     try {
       setUpdating(true);
-      await ticketService.assignTicket(id, selectedAdmin, difficulty);
+      await ticketService.assignTicket(id, selectedAdmin, difficulty, selectedPriority);
       toast.success('Ticket assigned successfully');
       setShowAssignModal(false);
       setSelectedAdmin('');
+      setSelectedPriority('medium');
       setDifficulty(3);
       fetchTicket();
     } catch (error) {
@@ -1126,6 +1135,44 @@ const TicketDetail = () => {
               </select>
             </div>
 
+            {/* Priority Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Ticket Priority <span className="text-red-500">*</span>
+              </label>
+              <div className="space-y-2">
+                {PRIORITIES.map((priority) => (
+                  <label
+                    key={priority.value}
+                    className={`flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                      selectedPriority === priority.value
+                        ? 'border-teal-500 bg-teal-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="priority"
+                      value={priority.value}
+                      checked={selectedPriority === priority.value}
+                      onChange={(e) => setSelectedPriority(e.target.value)}
+                      className="mt-0.5 text-teal-600 focus:ring-teal-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priority.color}`}>
+                          {priority.label}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {priority.desc}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Difficulty Selection */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -1190,6 +1237,7 @@ const TicketDetail = () => {
                 onClick={() => {
                   setShowAssignModal(false);
                   setSelectedAdmin('');
+                  setSelectedPriority('medium');
                   setDifficulty(3);
                 }}
                 disabled={updating}

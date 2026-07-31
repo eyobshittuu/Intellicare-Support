@@ -41,8 +41,8 @@ export const ticketService = {
     return response.data;
   },
 
-  async assignTicket(id, adminId, difficulty) {
-    const response = await api.put(`/tickets/${id}/assign`, { adminId, difficulty });
+  async assignTicket(id, adminId, difficulty, priority) {
+    const response = await api.put(`/tickets/${id}/assign`, { adminId, difficulty, priority });
     return response.data;
   },
 };

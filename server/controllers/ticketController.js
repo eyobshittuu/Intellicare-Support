@@ -646,7 +646,7 @@ exports.getAssignmentRecommendations = async (req, res) => {
 // @access  Private (Super Admin only)
 exports.assignTicketManually = async (req, res) => {
   try {
-    const { adminId, difficulty } = req.body;
+    const { adminId, difficulty, priority } = req.body;
 
     if (!adminId) {
       return res.status(400).json({
@@ -659,6 +659,14 @@ exports.assignTicketManually = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Difficulty must be between 1 and 5'
+      });
+    }
+
+    const validPriorities = ['low', 'medium', 'high', 'urgent'];
+    if (priority && !validPriorities.includes(priority)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid priority. Must be: low, medium, high, or urgent'
       });
     }
 
@@ -692,6 +700,9 @@ exports.assignTicketManually = async (req, res) => {
     ticket.assigned_by = req.user.id;
     ticket.assigned_at = new Date();
     ticket.difficulty = difficulty || null;
+    if (priority) {
+      ticket.priority = priority;
+    }
     await ticket.save();
 
     // Log manual assignment
