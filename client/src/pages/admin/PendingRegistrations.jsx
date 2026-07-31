@@ -6,6 +6,41 @@ import {
   Trash2, Loader2, Search, Filter, Calendar, Mail, User
 } from 'lucide-react';
 
+// Hospital list
+const HOSPITALS = [
+  'Hallelujah General Hospital',
+  'Negele Arsi General Hospital',
+  'Zway General Hospital',
+  'Silk Road General Hospital',
+  'Soddo General Hospital',
+  'Axon Neurology Specialty Center',
+  'Bethesda American Medical Plaza',
+  'St. Urael Internal Medicine Specialty Clinic',
+  'Bishoftu General Hospital',
+  'British Hospital',
+  'Wollo Medium Clinic',
+  'Wellspring Multispecialty Medical Center',
+  'Lobe Medium Clinic',
+  'Butajira General Hospital',
+  'Nile — Sululta General Hospital',
+  'Oasis General Hospital',
+  'Pinnacle Medium Clinic',
+  'Michael Medium Clinic',
+  'Alia Diagnostic Center',
+  'Ethiotebib General Hospital',
+  'Vital Medium Clinic',
+  'Lukas Medium Clinic',
+  'Liyu Medium Clinic',
+  'Summit General Hospital',
+  'Abnet General Hospital',
+  'Gara Medium Clinic',
+  'Eftu General Hospital',
+  'Bethel General Hospital',
+  'Ethiocare General Hospital',
+  'Newleaf General Hospital',
+  'Mosaic General Hospital'
+];
+
 const PendingRegistrations = () => {
   const [registrations, setRegistrations] = useState([]);
   const [stats, setStats] = useState(null);
@@ -385,14 +420,19 @@ const PendingRegistrations = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Hospital Name *
               </label>
-              <input
-                type="text"
+              <select
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="Enter hospital name..."
                 value={hospitalName}
                 onChange={(e) => setHospitalName(e.target.value)}
                 autoFocus
-              />
+              >
+                <option value="">Select hospital...</option>
+                {HOSPITALS.map((hospital) => (
+                  <option key={hospital} value={hospital}>
+                    {hospital}
+                  </option>
+                ))}
+              </select>
               <p className="text-xs text-gray-500 mt-1">
                 This will be used for all tickets created by this user
               </p>
