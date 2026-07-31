@@ -20,11 +20,13 @@ const MainLayout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     ...(user?.role !== 'user' ? [{ name: 'Tickets', href: '/tickets', icon: Ticket }] : []), // Admins see tickets
-    ...(isAdmin ? [{ name: 'Chat', href: '/chat', icon: MessageSquare }] : []),
+    // Admin chat sections - Direct Messages and Channels separated
+    ...(isAdmin ? [{ name: 'Direct Messages', href: '/chat/direct', icon: MessageSquare }] : []),
+    ...(isAdmin ? [{ name: 'Channels', href: '/chat/channels', icon: Hash }] : []),
     // Super admin only features
     ...(user?.role === 'super_admin' ? [{ name: 'Users', href: '/users', icon: Users }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Registrations', href: '/registrations', icon: UserCog }] : []),
-    ...(user?.role === 'super_admin' ? [{ name: 'Channels', href: '/channels', icon: Hash }] : []),
+    ...(user?.role === 'super_admin' ? [{ name: 'Channel Settings', href: '/channels', icon: Hash }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Performance', href: '/performance', icon: TrendingUp }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'System Logs', href: '/system-logs', icon: FileText }] : []),
     { name: 'Profile', href: '/profile', icon: User },
@@ -137,9 +139,13 @@ const MainLayout = () => {
                   <div className="relative flex-shrink-0">
                     <Icon size={20} />
                     {/* Badge on icon when sidebar is collapsed */}
-                    {item.name === 'Chat' && unreadCounts.total > 0 && !sidebarOpen && (
+                    {((item.name === 'Direct Messages' && unreadCounts.direct > 0) || 
+                      (item.name === 'Channels' && unreadCounts.channel > 0)) && 
+                      !sidebarOpen && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center border-2 border-gray-900 animate-pulse">
-                        {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
+                        {item.name === 'Direct Messages' 
+                          ? (unreadCounts.direct > 9 ? '9+' : unreadCounts.direct)
+                          : (unreadCounts.channel > 9 ? '9+' : unreadCounts.channel)}
                       </span>
                     )}
                   </div>
@@ -149,9 +155,13 @@ const MainLayout = () => {
                     {item.name}
                   </span>
                   {/* Badge at the end when sidebar is expanded */}
-                  {item.name === 'Chat' && unreadCounts.total > 0 && sidebarOpen && (
+                  {((item.name === 'Direct Messages' && unreadCounts.direct > 0) || 
+                    (item.name === 'Channels' && unreadCounts.channel > 0)) && 
+                    sidebarOpen && (
                     <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse">
-                      {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
+                      {item.name === 'Direct Messages' 
+                        ? (unreadCounts.direct > 9 ? '9+' : unreadCounts.direct)
+                        : (unreadCounts.channel > 9 ? '9+' : unreadCounts.channel)}
                     </span>
                   )}
                 </Link>
@@ -198,9 +208,12 @@ const MainLayout = () => {
                   >
                     <Icon size={20} className="flex-shrink-0" />
                     <span className="flex-1">{item.name}</span>
-                    {item.name === 'Chat' && unreadCounts.total > 0 && (
+                    {((item.name === 'Direct Messages' && unreadCounts.direct > 0) || 
+                      (item.name === 'Channels' && unreadCounts.channel > 0)) && (
                       <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 animate-pulse">
-                        {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
+                        {item.name === 'Direct Messages' 
+                          ? (unreadCounts.direct > 9 ? '9+' : unreadCounts.direct)
+                          : (unreadCounts.channel > 9 ? '9+' : unreadCounts.channel)}
                       </span>
                     )}
                   </Link>

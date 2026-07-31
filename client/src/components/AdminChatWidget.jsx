@@ -21,7 +21,7 @@ const STATUS_OPTIONS = [
 // Common emojis for reactions
 const REACTION_EMOJIS = ['👍', '❤️', '😊', '🎉', '👏', '🔥'];
 
-const AdminChatWidget = () => {
+const AdminChatWidget = ({ initialTab = 'direct' }) => {
   const { socket, isConnected, onlineUsers } = useSocket();
   const { user } = useAuth();
   const { 
@@ -36,7 +36,7 @@ const AdminChatWidget = () => {
     clearActive
   } = useNotifications();
   const [isMinimized, setIsMinimized] = useState(false);
-  const [activeTab, setActiveTab] = useState('direct'); // 'direct' or 'channels'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'direct' or 'channels'
   const [showUserList, setShowUserList] = useState(true);
   const [admins, setAdmins] = useState([]);
   const [channels, setChannels] = useState([]);
@@ -75,6 +75,11 @@ const AdminChatWidget = () => {
     loadAdmins();
     loadChannels();
   }, []);
+
+  // Sync activeTab with initialTab prop
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   // Load channels
   const loadChannels = async () => {

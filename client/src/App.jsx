@@ -87,9 +87,25 @@ function App() {
             <Route path="/tickets/:id" element={<TicketDetail />} />
             <Route path="/profile" element={<Profile />} />
             
-            {/* Admin Chat Route */}
+            {/* Admin Chat Routes */}
             <Route
               path="/chat"
+              element={
+                <ProtectedRoute adminOnly>
+                  <Chat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat/direct"
+              element={
+                <ProtectedRoute adminOnly>
+                  <Chat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat/channels"
               element={
                 <ProtectedRoute adminOnly>
                   <Chat />
