@@ -20,8 +20,8 @@ export const registrationService = {
   },
 
   // Approve a registration
-  async approveRegistration(userId) {
-    const response = await api.put(`/registrations/${userId}/approve`);
+  async approveRegistration(userId, hospital) {
+    const response = await api.put(`/registrations/${userId}/approve`, { hospital });
     return response.data;
   },
 

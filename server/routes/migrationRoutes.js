@@ -1002,6 +1002,15 @@ router.get('/add-user-approval', async (req, res) => {
             RAISE NOTICE 'Added rejection_reason column';
           END IF;
 
+          -- Add hospital column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'hospital'
+          ) THEN
+            ALTER TABLE users ADD COLUMN hospital VARCHAR(200);
+            RAISE NOTICE 'Added hospital column';
+          END IF;
+
           -- CRITICAL: Auto-approve all existing users
           UPDATE users 
           SET account_status = 'approved', 
@@ -1050,7 +1059,8 @@ router.get('/add-user-approval', async (req, res) => {
         `ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status VARCHAR(20) DEFAULT 'pending'`,
         `ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by BIGINT UNSIGNED`,
         `ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at DATETIME`,
-        `ALTER TABLE users ADD COLUMN IF NOT EXISTS rejection_reason TEXT`
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS rejection_reason TEXT`,
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS hospital VARCHAR(200)`
       ];
 
       for (const query of queries) {

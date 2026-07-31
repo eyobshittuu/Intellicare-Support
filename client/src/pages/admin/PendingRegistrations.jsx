@@ -14,7 +14,9 @@ const PendingRegistrations = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [hospitalName, setHospitalName] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
@@ -49,18 +51,28 @@ const PendingRegistrations = () => {
   };
 
   const handleApprove = async (user) => {
-    if (!confirm(`Are you sure you want to approve ${user.first_name} ${user.last_name}'s registration?`)) {
+    setSelectedUser(user);
+    setHospitalName(user.hospital || ''); // Pre-fill if already set
+    setShowApproveModal(true);
+  };
+
+  const handleApproveConfirm = async () => {
+    if (!hospitalName.trim()) {
+      toast.error('Please enter the hospital name');
       return;
     }
 
     try {
       setActionLoading(true);
-      await registrationService.approveRegistration(user.id);
-      toast.success(`${user.first_name} ${user.last_name}'s account has been approved!`);
+      await registrationService.approveRegistration(selectedUser.id, hospitalName.trim());
+      toast.success(`${selectedUser.first_name} ${selectedUser.last_name}'s account has been approved!`);
+      setShowApproveModal(false);
+      setSelectedUser(null);
+      setHospitalName('');
       fetchData(); // Refresh data
     } catch (error) {
       console.error('Error approving registration:', error);
-      toast.error('Failed to approve registration');
+      toast.error(error.response?.data?.message || 'Failed to approve registration');
     } finally {
       setActionLoading(false);
     }
@@ -258,6 +270,9 @@ const PendingRegistrations = () => {
                     Contact
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Hospital
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -291,6 +306,13 @@ const PendingRegistrations = () => {
                         <Mail size={14} className="mr-2 text-gray-400" />
                         {user.email}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {user.hospital ? (
+                        <div className="text-sm text-gray-900">{user.hospital}</div>
+                      ) : (
+                        <div className="text-sm text-gray-400 italic">Not assigned</div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(user.account_status)}
@@ -347,6 +369,60 @@ const PendingRegistrations = () => {
           </div>
         )}
       </div>
+
+      {/* Approve Modal */}
+      {showApproveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Approve Registration
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              You are about to approve {selectedUser?.first_name} {selectedUser?.last_name}'s registration.
+              Please assign their hospital:
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Hospital Name *
+              </label>
+              <input
+                type="text"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                placeholder="Enter hospital name..."
+                value={hospitalName}
+                onChange={(e) => setHospitalName(e.target.value)}
+                autoFocus
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This will be used for all tickets created by this user
+              </p>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowApproveModal(false);
+                  setHospitalName('');
+                }}
+                disabled={actionLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApproveConfirm}
+                disabled={actionLoading || !hospitalName.trim()}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionLoading ? (
+                  <Loader2 className="animate-spin mx-auto" size={20} />
+                ) : (
+                  'Approve'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reject Modal */}
       {showRejectModal && (

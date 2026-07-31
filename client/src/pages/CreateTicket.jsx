@@ -1,42 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { ticketService } from '../services/ticketService';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-
-const HOSPITALS = [
-  'Hallelujah General Hospital',
-  'Negele Arsi General Hospital',
-  'Zway General Hospital',
-  'Silk Road General Hospital',
-  'Soddo General Hospital',
-  'Axon Neurology Specialty Center',
-  'Bethesda American Medical Plaza',
-  'St. Urael Internal Medicine Specialty Clinic',
-  'Bishoftu General Hospital',
-  'British Hospital',
-  'Wollo Medium Clinic',
-  'Wellspring Multispecialty Medical Center',
-  'Lobe Medium Clinic',
-  'Butajira General Hospital',
-  'Nile — Sululta General Hospital',
-  'Oasis General Hospital',
-  'Pinnacle Medium Clinic',
-  'Michael Medium Clinic',
-  'Alia Diagnostic Center',
-  'Ethiotebib General Hospital',
-  'Vital Medium Clinic',
-  'Lukas Medium Clinic',
-  'Liyu Medium Clinic',
-  'Summit General Hospital',
-  'Abnet General Hospital',
-  'Gara Medium Clinic',
-  'Eftu General Hospital',
-  'Bethel General Hospital',
-  'Ethiocare General Hospital',
-  'Newleaf General Hospital',
-  'Mosaic General Hospital'
-];
 
 const CATEGORIES = [
   'Technical Issue',
@@ -53,11 +20,11 @@ const PRIORITIES = [
 
 const CreateTicket = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    hospital: '',
     category: '',
     priority: 'medium'
   });
@@ -167,12 +134,14 @@ const CreateTicket = () => {
       newErrors.description = 'Description must be at least 10 characters';
     }
 
-    if (!formData.hospital) {
-      newErrors.hospital = 'Please select your hospital';
-    }
-
     if (!formData.category) {
       newErrors.category = 'Please select a category';
+    }
+
+    // Check if user has hospital assigned
+    if (!user?.hospital) {
+      toast.error('Your hospital has not been assigned yet. Please contact an administrator.');
+      return false;
     }
 
     setErrors(newErrors);
@@ -194,7 +163,7 @@ const CreateTicket = () => {
       const formDataToSend = new FormData();
       formDataToSend.append('title', formData.title);
       formDataToSend.append('description', formData.description);
-      formDataToSend.append('hospital', formData.hospital);
+      formDataToSend.append('hospital', user.hospital); // Use user's assigned hospital
       formDataToSend.append('category', formData.category);
       formDataToSend.append('priority', formData.priority);
 
@@ -244,30 +213,21 @@ const CreateTicket = () => {
             )}
           </div>
 
-          {/* Hospital */}
+          {/* Hospital - Display Only */}
           <div>
-            <label htmlFor="hospital" className="block text-sm font-medium text-gray-700 mb-2">
-              Hospital/Location <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Hospital/Location
             </label>
-            <select
-              id="hospital"
-              name="hospital"
-              value={formData.hospital}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent ${
-                errors.hospital ? 'border-red-500' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Select your hospital</option>
-              {HOSPITALS.map((hospital) => (
-                <option key={hospital} value={hospital}>
-                  {hospital}
-                </option>
-              ))}
-            </select>
-            {errors.hospital && (
-              <p className="mt-1 text-sm text-red-600">{errors.hospital}</p>
-            )}
+            <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+              {user?.hospital || (
+                <span className="text-red-500 italic">
+                  No hospital assigned. Please contact an administrator.
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Your hospital is assigned by the administrator during account approval
+            </p>
           </div>
 
           {/* Category */}

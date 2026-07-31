@@ -74,6 +74,11 @@ const User = sequelize.define('User', {
     type: DataTypes.TEXT,
     allowNull: true,
     comment: 'Reason for account rejection'
+  },
+  hospital: {
+    type: DataTypes.STRING(200),
+    allowNull: true,
+    comment: 'Hospital/facility where the user belongs (assigned by super admin)'
   }
 }, {
   tableName: 'users',

@@ -75,6 +75,7 @@ exports.getAllRegistrations = async (req, res) => {
         'first_name', 
         'middle_name', 
         'last_name', 
+        'hospital',
         'account_status',
         'approved_by',
         'approved_at',
@@ -118,6 +119,7 @@ exports.getAllRegistrations = async (req, res) => {
 exports.approveRegistration = async (req, res) => {
   try {
     const { id } = req.params;
+    const { hospital } = req.body; // Get hospital from request body
 
     const user = await User.findByPk(id);
 
@@ -135,10 +137,19 @@ exports.approveRegistration = async (req, res) => {
       });
     }
 
+    // Validate hospital is provided
+    if (!hospital || !hospital.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Hospital assignment is required'
+      });
+    }
+
     user.account_status = 'approved';
     user.approved_by = req.user.id;
     user.approved_at = new Date();
     user.rejection_reason = null; // Clear any previous rejection reason
+    user.hospital = hospital.trim(); // Assign hospital
     await user.save();
 
     // Log approval
@@ -146,6 +157,7 @@ exports.approveRegistration = async (req, res) => {
       userId: user.id,
       email: user.email,
       name: `${user.first_name} ${user.last_name}`,
+      hospital: user.hospital,
       approvedBy: req.user.id,
       approverName: `${req.user.first_name} ${req.user.last_name}`,
       action: 'REGISTRATION_APPROVED'
@@ -161,6 +173,7 @@ exports.approveRegistration = async (req, res) => {
         first_name: user.first_name,
         middle_name: user.middle_name,
         last_name: user.last_name,
+        hospital: user.hospital,
         account_status: user.account_status,
         approved_at: user.approved_at
       }
