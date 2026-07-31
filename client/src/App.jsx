@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { SocketProvider } from './context/SocketContext'
+import { NotificationProvider } from './context/NotificationContext'
 
 // Pages
 import Login from './pages/auth/Login'
@@ -56,7 +57,8 @@ function App() {
   return (
     <Router>
       <SocketProvider>
-        <Routes>
+        <NotificationProvider>
+          <Routes>
           {/* Public Auth Routes */}
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
@@ -142,6 +144,7 @@ function App() {
           {/* Catch all redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </NotificationProvider>
       </SocketProvider>
     </Router>
   )

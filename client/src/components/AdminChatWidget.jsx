@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { MessageSquare, X, Send, Minimize2, Users, Paperclip, Image as ImageIcon, File, Smile, Download, ChevronDown, Plus, Hash, UserPlus, Settings } from 'lucide-react';
+import { MessageSquare, X, Send, Minimize2, Users, Paperclip, Image as ImageIcon, File, Smile, Download, ChevronDown, Plus, Hash, UserPlus, Settings, Bell, BellOff } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import { getMessages } from '../services/chatService';
 import { userService } from '../services/userService';
 import { uploadChatFile } from '../services/chatFileService';
@@ -23,6 +24,15 @@ const REACTION_EMOJIS = ['👍', '❤️', '😊', '🎉', '👏', '🔥'];
 const AdminChatWidget = () => {
   const { socket, isConnected, onlineUsers } = useSocket();
   const { user } = useAuth();
+  const { 
+    unreadCounts, 
+    notificationsEnabled, 
+    toggleNotifications, 
+    clearUnread, 
+    getUnreadCount,
+    requestNotificationPermission,
+    notificationPermission
+  } = useNotifications();
   const [isMinimized, setIsMinimized] = useState(false);
   const [activeTab, setActiveTab] = useState('direct'); // 'direct' or 'channels'
   const [showUserList, setShowUserList] = useState(true);
@@ -247,6 +257,9 @@ const AdminChatWidget = () => {
     setSelectedChannel(null); // Clear channel selection
     setShowUserList(false);
     await loadMessages(admin.id);
+    
+    // Clear unread count for this admin
+    clearUnread('direct', admin.id);
   };
 
   const handleChannelSelect = async (channel) => {
@@ -259,6 +272,9 @@ const AdminChatWidget = () => {
     if (socket) {
       socket.emit('channel:join', { channelId: channel.id });
     }
+    
+    // Clear unread count for this channel
+    clearUnread('channel', channel.id);
   };
 
   const loadChannelMessages = async (channelId) => {
@@ -649,6 +665,20 @@ const AdminChatWidget = () => {
               </h3>
             </div>
             <div className="flex items-center gap-2">
+              {/* Notification Toggle */}
+              <button
+                onClick={toggleNotifications}
+                className="p-1 hover:bg-teal-700 rounded transition-colors relative"
+                title={notificationsEnabled ? 'Disable notifications' : 'Enable notifications'}
+              >
+                {notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+                {unreadCounts.total > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
+                  </span>
+                )}
+              </button>
+              
               {/* Status Indicator with Dropdown */}
               <div className="relative" ref={statusMenuRef}>
                 <button
@@ -699,7 +729,7 @@ const AdminChatWidget = () => {
                   <div className="border-b border-gray-200">
                     <div className="flex">
                       <button
-                        className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
+                        className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 relative ${
                           activeTab === 'direct' 
                             ? 'text-teal-600 border-b-2 border-teal-600 bg-teal-50' 
                             : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -708,9 +738,14 @@ const AdminChatWidget = () => {
                       >
                         <Users size={16} />
                         Direct
+                        {Object.keys(unreadCounts.direct).length > 0 && (
+                          <span className="absolute top-2 right-4 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                            {Object.keys(unreadCounts.direct).length > 9 ? '9+' : Object.keys(unreadCounts.direct).length}
+                          </span>
+                        )}
                       </button>
                       <button
-                        className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
+                        className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 relative ${
                           activeTab === 'channels' 
                             ? 'text-teal-600 border-b-2 border-teal-600 bg-teal-50' 
                             : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -719,6 +754,11 @@ const AdminChatWidget = () => {
                       >
                         <Hash size={16} />
                         Channels
+                        {Object.keys(unreadCounts.channels).length > 0 && (
+                          <span className="absolute top-2 right-4 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                            {Object.keys(unreadCounts.channels).length > 9 ? '9+' : Object.keys(unreadCounts.channels).length}
+                          </span>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -744,30 +784,38 @@ const AdminChatWidget = () => {
                             <p className="text-sm">No admins found</p>
                           </div>
                         ) : (
-                          filteredAdmins.map((admin) => (
-                            <div
-                              key={admin.id}
-                              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 flex items-center gap-3"
-                              onClick={() => handleAdminSelect(admin)}
-                            >
-                              <div className="relative">
-                                <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                                  {admin.first_name[0]}{admin.last_name[0]}
+                          filteredAdmins.map((admin) => {
+                            const unreadCount = getUnreadCount('direct', admin.id);
+                            return (
+                              <div
+                                key={admin.id}
+                                className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 flex items-center gap-3"
+                                onClick={() => handleAdminSelect(admin)}
+                              >
+                                <div className="relative">
+                                  <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                                    {admin.first_name[0]}{admin.last_name[0]}
+                                  </div>
+                                  {isUserOnline(admin.id) && (
+                                    <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(getUserStatus(admin.id))}`}></div>
+                                  )}
                                 </div>
-                                {isUserOnline(admin.id) && (
-                                  <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(getUserStatus(admin.id))}`}></div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-800 truncate">
+                                    {admin.first_name} {admin.last_name}
+                                  </p>
+                                  <p className="text-xs text-gray-500 truncate">
+                                    {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                                  </p>
+                                </div>
+                                {unreadCount > 0 && (
+                                  <div className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                  </div>
                                 )}
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">
-                                  {admin.first_name} {admin.last_name}
-                                </p>
-                                <p className="text-xs text-gray-500 truncate">
-                                  {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
-                                </p>
-                              </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </>
@@ -793,40 +841,43 @@ const AdminChatWidget = () => {
                             <p className="text-xs mt-1">Create a channel to get started</p>
                           </div>
                         ) : (
-                          channels.map((membership) => (
-                            <div
-                              key={membership.channel.id}
-                              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
-                              onClick={() => handleChannelSelect(membership.channel)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div 
-                                  className="w-10 h-10 rounded flex items-center justify-center text-white font-bold text-lg"
-                                  style={{ backgroundColor: membership.channel.avatar_color }}
-                                >
-                                  #
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-sm font-medium text-gray-800 truncate">
-                                      {membership.channel.name}
-                                    </p>
-                                    {membership.channel.channel_type === 'private' && (
-                                      <span className="text-xs text-gray-500">🔒</span>
-                                    )}
+                          channels.map((membership) => {
+                            const unreadCount = getUnreadCount('channel', membership.channel.id);
+                            return (
+                              <div
+                                key={membership.channel.id}
+                                className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                                onClick={() => handleChannelSelect(membership.channel)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div 
+                                    className="w-10 h-10 rounded flex items-center justify-center text-white font-bold text-lg"
+                                    style={{ backgroundColor: membership.channel.avatar_color }}
+                                  >
+                                    #
                                   </div>
-                                  <p className="text-xs text-gray-500">
-                                    {membership.channel.members?.length || 0} members
-                                  </p>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-sm font-medium text-gray-800 truncate">
+                                        {membership.channel.name}
+                                      </p>
+                                      {membership.channel.channel_type === 'private' && (
+                                        <span className="text-xs text-gray-500">🔒</span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-gray-500">
+                                      {membership.channel.members?.length || 0} members
+                                    </p>
+                                  </div>
+                                  {unreadCount > 0 && (
+                                    <div className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                                      {unreadCount > 9 ? '9+' : unreadCount}
+                                    </div>
+                                  )}
                                 </div>
-                                {membership.unreadCount > 0 && (
-                                  <span className="bg-teal-600 text-white text-xs px-2 py-1 rounded-full font-medium">
-                                    {membership.unreadCount}
-                                  </span>
-                                )}
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </>

@@ -1,10 +1,12 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, FileText, TrendingUp, MessageSquare, Hash } from 'lucide-react';
 import { useState } from 'react';
 
 const MainLayout = () => {
   const { user, logout, isAdmin } = useAuth();
+  const { unreadCounts } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true); // Desktop sidebar open by default
@@ -125,6 +127,11 @@ const MainLayout = () => {
                   }`}>
                     {item.name}
                   </span>
+                  {item.name === 'Chat' && unreadCounts.total > 0 && (
+                    <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -146,7 +153,7 @@ const MainLayout = () => {
                     key={item.name}
                     to={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                    className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors relative ${
                       active
                         ? 'bg-teal-600 text-white'
                         : 'text-gray-300 hover:bg-gray-800 hover:text-white'
@@ -154,6 +161,11 @@ const MainLayout = () => {
                   >
                     <Icon size={20} />
                     {item.name}
+                    {item.name === 'Chat' && unreadCounts.total > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

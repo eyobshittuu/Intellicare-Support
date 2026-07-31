@@ -109,6 +109,22 @@ const chatHandler = (io) => {
           io.to(`channel:${channel_id}`).emit('message:received', completeMessage);
           console.log(`Channel message sent in channel ${channel_id} by user ${socket.userId}`);
           
+          // Send notification event to all channel members except sender
+          const channelMembers = await ChannelMember.findAll({
+            where: { channel_id },
+            attributes: ['user_id']
+          });
+          
+          channelMembers.forEach(member => {
+            if (member.user_id !== socket.userId) {
+              io.to(`user:${member.user_id}`).emit('notification:new', {
+                type: 'channel_message',
+                channelId: channel_id,
+                message: completeMessage
+              });
+            }
+          });
+          
           // Send mention notifications
           if (mentions && mentions.user_ids && mentions.user_ids.length > 0) {
             mentions.user_ids.forEach(userId => {
@@ -122,11 +138,6 @@ const chatHandler = (io) => {
           
           // Notify everyone in channel if @everyone
           if (mentions && mentions.everyone) {
-            const channelMembers = await ChannelMember.findAll({
-              where: { channel_id },
-              attributes: ['user_id']
-            });
-            
             channelMembers.forEach(member => {
               if (member.user_id !== socket.userId) {
                 io.to(`user:${member.user_id}`).emit('mention:received', {
@@ -144,6 +155,13 @@ const chatHandler = (io) => {
           // Send to recipient if online
           io.to(`user:${recipient_id}`).emit('message:received', completeMessage);
           console.log(`Message sent from ${socket.userId} to ${recipient_id}`);
+          
+          // Send notification event to recipient
+          io.to(`user:${recipient_id}`).emit('notification:new', {
+            type: 'direct_message',
+            senderId: socket.userId,
+            message: completeMessage
+          });
           
           // Send mention notification for direct message
           if (mentions && mentions.user_ids && mentions.user_ids.includes(recipient_id)) {
