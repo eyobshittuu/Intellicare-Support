@@ -213,8 +213,8 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Statistics - Admin Only - Mobile Optimized */}
-      {isAdmin && stats && (
+      {/* Statistics - Super Admin Only - Mobile Optimized */}
+      {user?.role === 'super_admin' && stats && (
         <div>
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Ticket Statistics</h2>
           {error ? (
@@ -257,8 +257,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Ticket Lists - Admin Only - Mobile Optimized */}
-      {isAdmin && (
+      {/* Ticket Lists - Super Admin Only - Mobile Optimized */}
+      {user?.role === 'super_admin' && (
         <div className="space-y-3 sm:space-y-4">
           {/* Tab Navigation - Mobile Scrollable */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
