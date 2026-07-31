@@ -53,7 +53,7 @@ const User = sequelize.define('User', {
   account_status: {
     type: DataTypes.ENUM('pending', 'approved', 'rejected'),
     defaultValue: 'pending',
-    allowNull: false,
+    allowNull: true, // Allow null for backward compatibility
     comment: 'Account approval status by super admin'
   },
   approved_by: {

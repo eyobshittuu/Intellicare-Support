@@ -147,35 +147,37 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if account is approved
-    if (user.account_status === 'pending') {
-      // Log pending account login attempt
-      logger.warn('Login attempt on pending account', {
-        userId: user.id,
-        email: user.email,
-        ip: req.ip,
-        action: 'LOGIN_PENDING_ACCOUNT'
-      });
-      
-      return res.status(403).json({
-        success: false,
-        message: 'Your account is pending approval. Please wait for admin approval.'
-      });
-    }
+    // Check if account is approved (only if account_status field exists)
+    if (user.account_status !== undefined) {
+      if (user.account_status === 'pending') {
+        // Log pending account login attempt
+        logger.warn('Login attempt on pending account', {
+          userId: user.id,
+          email: user.email,
+          ip: req.ip,
+          action: 'LOGIN_PENDING_ACCOUNT'
+        });
+        
+        return res.status(403).json({
+          success: false,
+          message: 'Your account is pending approval. Please wait for admin approval.'
+        });
+      }
 
-    if (user.account_status === 'rejected') {
-      // Log rejected account login attempt
-      logger.warn('Login attempt on rejected account', {
-        userId: user.id,
-        email: user.email,
-        ip: req.ip,
-        action: 'LOGIN_REJECTED_ACCOUNT'
-      });
-      
-      return res.status(403).json({
-        success: false,
-        message: 'Your account registration was rejected. Please contact support for more information.'
-      });
+      if (user.account_status === 'rejected') {
+        // Log rejected account login attempt
+        logger.warn('Login attempt on rejected account', {
+          userId: user.id,
+          email: user.email,
+          ip: req.ip,
+          action: 'LOGIN_REJECTED_ACCOUNT'
+        });
+        
+        return res.status(403).json({
+          success: false,
+          message: 'Your account registration was rejected. Please contact support for more information.'
+        });
+      }
     }
 
     // Check password

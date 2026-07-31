@@ -7,9 +7,10 @@ const { Op } = require('sequelize');
 // @access  Private/SuperAdmin
 exports.getPendingRegistrations = async (req, res) => {
   try {
+    // Check if account_status column exists before querying
     const pendingUsers = await User.findAll({
       where: { account_status: 'pending' },
-      attributes: ['id', 'email', 'username', 'first_name', 'middle_name', 'last_name', 'created_at'],
+      attributes: ['id', 'email', 'username', 'first_name', 'middle_name', 'last_name', 'created_at', 'account_status'],
       order: [['created_at', 'ASC']]
     });
 
@@ -20,6 +21,17 @@ exports.getPendingRegistrations = async (req, res) => {
     });
   } catch (error) {
     console.error('Get pending registrations error:', error);
+    
+    // If column doesn't exist, return empty array
+    if (error.message && error.message.includes('account_status')) {
+      return res.json({
+        success: true,
+        count: 0,
+        data: [],
+        message: 'Database migration required. Please run the account approval migration.'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error fetching pending registrations',
