@@ -29,17 +29,31 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    // Create socket connection
+    // Create socket connection with production-ready configuration
     const serverUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    console.log('Connecting to socket server:', serverUrl);
+    
     const newSocket = io(serverUrl, {
       autoConnect: true,
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 10, // Increased for production
+      timeout: 20000, // 20 seconds
+      transports: ['websocket', 'polling'], // Try websocket first, fallback to polling
+      upgrade: true,
+      rememberUpgrade: true,
+      // Important for cross-origin connections
+      withCredentials: true,
+      // Add extra headers if needed
+      extraHeaders: {
+        'Access-Control-Allow-Origin': '*'
+      }
     });
 
     newSocket.on('connect', () => {
-      console.log('Socket connected:', newSocket.id);
+      console.log('✅ Socket connected:', newSocket.id);
+      console.log('Transport:', newSocket.io.engine.transport.name);
       setIsConnected(true);
       
       // Authenticate the socket
@@ -50,12 +64,33 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on('authenticated', (data) => {
-      console.log('Socket authenticated:', data);
+      console.log('✅ Socket authenticated:', data);
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
+    newSocket.on('disconnect', (reason) => {
+      console.log('❌ Socket disconnected. Reason:', reason);
       setIsConnected(false);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('❌ Socket connection error:', error.message);
+      console.log('Attempting to reconnect...');
+    });
+
+    newSocket.on('reconnect', (attemptNumber) => {
+      console.log('✅ Socket reconnected after', attemptNumber, 'attempts');
+    });
+
+    newSocket.on('reconnect_attempt', (attemptNumber) => {
+      console.log('🔄 Reconnection attempt', attemptNumber);
+    });
+
+    newSocket.on('reconnect_error', (error) => {
+      console.error('❌ Reconnection error:', error.message);
+    });
+
+    newSocket.on('reconnect_failed', () => {
+      console.error('❌ Failed to reconnect after all attempts');
     });
 
     newSocket.on('user:online', (data) => {

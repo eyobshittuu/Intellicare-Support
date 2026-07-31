@@ -49,12 +49,22 @@ app.use(cors({
   credentials: true
 }));
 
-// Socket.IO setup
+// Socket.IO setup with production-ready configuration
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    credentials: true
-  }
+    credentials: true,
+    methods: ["GET", "POST"]
+  },
+  // Important for Render and other hosting platforms
+  transports: ['websocket', 'polling'], // Try websocket first, fallback to polling
+  allowEIO3: true, // Support older clients
+  pingTimeout: 60000, // 60 seconds
+  pingInterval: 25000, // 25 seconds
+  upgradeTimeout: 30000, // 30 seconds
+  maxHttpBufferSize: 1e8, // 100 MB
+  allowUpgrades: true,
+  cookie: false // Disable cookies for better compatibility
 });
 
 // Initialize chat handler
