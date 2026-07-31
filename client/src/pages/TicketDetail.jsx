@@ -1110,116 +1110,119 @@ const TicketDetail = () => {
       {/* Assignment Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Assign Ticket to Admin</h2>
-            <p className="text-sm text-gray-600 mb-6">
-              Select an admin and set the difficulty level for this ticket.
-            </p>
-            
-            {/* Admin Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Admin <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={selectedAdmin}
-                onChange={(e) => setSelectedAdmin(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              >
-                <option value="">-- Choose an admin --</option>
-                {admins.map((admin) => (
-                  <option key={admin.id} value={admin.id}>
-                    {admin.first_name} {admin.last_name} - {admin.email}
-                  </option>
-                ))}
-              </select>
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-bold text-gray-900">Assign Ticket to Admin</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Select admin, priority, and difficulty level
+              </p>
             </div>
 
-            {/* Priority Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Ticket Priority <span className="text-red-500">*</span>
-              </label>
-              <div className="space-y-2">
-                {PRIORITIES.map((priority) => (
-                  <label
-                    key={priority.value}
-                    className={`flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                      selectedPriority === priority.value
-                        ? 'border-teal-500 bg-teal-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="priority"
-                      value={priority.value}
-                      checked={selectedPriority === priority.value}
-                      onChange={(e) => setSelectedPriority(e.target.value)}
-                      className="mt-0.5 text-teal-600 focus:ring-teal-500"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priority.color}`}>
+            <div className="px-6 py-4 space-y-4">
+              {/* Admin Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Admin <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedAdmin}
+                  onChange={(e) => setSelectedAdmin(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                >
+                  <option value="">-- Choose an admin --</option>
+                  {admins.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.first_name} {admin.last_name} - {admin.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Priority Selection - Compact Grid */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ticket Priority <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {PRIORITIES.map((priority) => (
+                    <label
+                      key={priority.value}
+                      className={`flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        selectedPriority === priority.value
+                          ? 'border-teal-500 bg-teal-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="priority"
+                        value={priority.value}
+                        checked={selectedPriority === priority.value}
+                        onChange={(e) => setSelectedPriority(e.target.value)}
+                        className="text-teal-600 focus:ring-teal-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${priority.color}`}>
                           {priority.label}
                         </span>
+                        <p className="text-xs text-gray-600 mt-0.5 truncate">
+                          {priority.desc}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {priority.desc}
-                      </p>
-                    </div>
-                  </label>
-                ))}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Difficulty Selection - Compact Grid */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Difficulty Level <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[1, 2, 3, 4, 5].map((level) => (
+                    <label
+                      key={level}
+                      className={`flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        difficulty === level
+                          ? 'border-teal-500 bg-teal-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="difficulty"
+                        value={level}
+                        checked={difficulty === level}
+                        onChange={(e) => setDifficulty(Number(e.target.value))}
+                        className="text-teal-600 focus:ring-teal-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`font-bold ${difficultyLabels[level].color}`}>
+                            {level}
+                          </span>
+                          <span className="font-semibold text-gray-900 text-sm">
+                            {difficultyLabels[level].label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-0.5 truncate">
+                          {difficultyLabels[level].desc}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Difficulty Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Difficulty Level <span className="text-red-500">*</span>
-              </label>
-              <div className="space-y-2">
-                {[1, 2, 3, 4, 5].map((level) => (
-                  <label
-                    key={level}
-                    className={`flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                      difficulty === level
-                        ? 'border-teal-500 bg-teal-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="difficulty"
-                      value={level}
-                      checked={difficulty === level}
-                      onChange={(e) => setDifficulty(Number(e.target.value))}
-                      className="mt-0.5 text-teal-600 focus:ring-teal-500"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`font-bold ${difficultyLabels[level].color}`}>
-                          {level}
-                        </span>
-                        <span className="font-semibold text-gray-900">
-                          {difficultyLabels[level].label}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {difficultyLabels[level].desc}
-                      </p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3">
+            {/* Footer Buttons */}
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3">
               <button
                 onClick={handleAssignTicket}
                 disabled={updating || !selectedAdmin}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
               >
                 {updating ? (
                   <>
@@ -1241,7 +1244,7 @@ const TicketDetail = () => {
                   setDifficulty(3);
                 }}
                 disabled={updating}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium transition-colors"
+                className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium transition-colors"
               >
                 Cancel
               </button>
