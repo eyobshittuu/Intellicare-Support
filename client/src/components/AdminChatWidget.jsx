@@ -750,45 +750,8 @@ const AdminChatWidget = ({ initialTab = 'direct' }) => {
               {/* User List or Chat */}
               {showUserList ? (
                 <div className="flex-1 flex flex-col overflow-hidden">
-                  {/* Tabs */}
-                  <div className="border-b border-gray-200">
-                    <div className="flex">
-                      <button
-                        className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 relative ${
-                          activeTab === 'direct' 
-                            ? 'text-teal-600 border-b-2 border-teal-600 bg-teal-50' 
-                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                        }`}
-                        onClick={() => setActiveTab('direct')}
-                      >
-                        <Users size={16} />
-                        Direct
-                        {Object.keys(unreadCounts.direct).length > 0 && (
-                          <span className="absolute top-2 right-4 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                            {Object.keys(unreadCounts.direct).length > 9 ? '9+' : Object.keys(unreadCounts.direct).length}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 relative ${
-                          activeTab === 'channels' 
-                            ? 'text-teal-600 border-b-2 border-teal-600 bg-teal-50' 
-                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                        }`}
-                        onClick={() => setActiveTab('channels')}
-                      >
-                        <Hash size={16} />
-                        Channels
-                        {Object.keys(unreadCounts.channels).length > 0 && (
-                          <span className="absolute top-2 right-4 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                            {Object.keys(unreadCounts.channels).length > 9 ? '9+' : Object.keys(unreadCounts.channels).length}
-                          </span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {activeTab === 'direct' ? (
+                  {/* Direct Messages View */}
+                  {activeTab === 'direct' && (
                     <>
                       {/* Search */}
                       <div className="p-3 border-b border-gray-200">
@@ -844,7 +807,10 @@ const AdminChatWidget = ({ initialTab = 'direct' }) => {
                         )}
                       </div>
                     </>
-                  ) : (
+                  )}
+                  
+                  {/* Channels View */}
+                  {activeTab === 'channels' && (
                     <>
                       {/* Create Channel Button */}
                       <div className="p-3 border-b border-gray-200">
