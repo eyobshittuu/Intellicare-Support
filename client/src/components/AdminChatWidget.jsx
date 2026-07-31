@@ -365,15 +365,30 @@ const AdminChatWidget = () => {
 
   // Get mentionable users (channel members or all admins)
   const getMentionableUsers = () => {
-    // For now, always use the admins list since we don't have full member data
-    // In the future, we could fetch channel members separately
-    return admins.map(admin => ({
-      id: admin.id,
-      name: admin.username || `${admin.first_name} ${admin.last_name}`,
-      displayName: `${admin.first_name} ${admin.last_name}`,
-      username: admin.username,
-      email: admin.email
-    }));
+    // For direct messages, only show the person you're chatting with
+    if (selectedAdmin) {
+      return [{
+        id: selectedAdmin.id,
+        name: selectedAdmin.username || `${selectedAdmin.first_name} ${selectedAdmin.last_name}`,
+        displayName: `${selectedAdmin.first_name} ${selectedAdmin.last_name}`,
+        username: selectedAdmin.username,
+        email: selectedAdmin.email
+      }];
+    }
+    
+    // For channels, show all admins (channel members)
+    if (selectedChannel) {
+      return admins.map(admin => ({
+        id: admin.id,
+        name: admin.username || `${admin.first_name} ${admin.last_name}`,
+        displayName: `${admin.first_name} ${admin.last_name}`,
+        username: admin.username,
+        email: admin.email
+      }));
+    }
+    
+    // Default: return empty array if no conversation selected
+    return [];
   };
 
   // Handle mention selection
