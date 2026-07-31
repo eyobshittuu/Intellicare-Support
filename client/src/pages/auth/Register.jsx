@@ -36,9 +36,23 @@ const Register = () => {
     setLoading(true);
 
     try {
-      await register(formData);
-      toast.success('Registration successful! Redirecting...');
-      navigate('/');
+      const response = await register(formData);
+      
+      // Check if registration requires approval
+      if (response.requiresApproval) {
+        toast.success('Registration submitted! Your account is pending admin approval.', {
+          duration: 6000
+        });
+        // Redirect to login with a message
+        navigate('/login', { 
+          state: { 
+            message: 'Registration successful! Your account is pending approval by an administrator. You will be able to log in once approved.' 
+          } 
+        });
+      } else {
+        toast.success('Registration successful! Redirecting...');
+        navigate('/');
+      }
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
       toast.error(errorMessage);

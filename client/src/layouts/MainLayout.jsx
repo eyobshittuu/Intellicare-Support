@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, FileText, TrendingUp, MessageSquare, Hash } from 'lucide-react';
+import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, FileText, TrendingUp, MessageSquare, Hash, UserCog } from 'lucide-react';
 import { useState } from 'react';
 
 const MainLayout = () => {
@@ -22,6 +22,7 @@ const MainLayout = () => {
     { name: 'Tickets', href: '/tickets', icon: Ticket },
     ...(isAdmin ? [{ name: 'Chat', href: '/chat', icon: MessageSquare }] : []),
     ...(isAdmin ? [{ name: 'Users', href: '/users', icon: Users }] : []),
+    ...(user?.role === 'super_admin' ? [{ name: 'Registrations', href: '/registrations', icon: UserCog }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Channels', href: '/channels', icon: Hash }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'Performance', href: '/performance', icon: TrendingUp }] : []),
     ...(user?.role === 'super_admin' ? [{ name: 'System Logs', href: '/system-logs', icon: FileText }] : []),

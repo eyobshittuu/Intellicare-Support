@@ -15,6 +15,7 @@ import CreateAdmin from './pages/admin/CreateAdmin'
 import SystemLogs from './pages/admin/SystemLogs'
 import Performance from './pages/admin/Performance'
 import Channels from './pages/admin/Channels'
+import PendingRegistrations from './pages/admin/PendingRegistrations'
 import Profile from './pages/Profile'
 import Chat from './pages/Chat'
 
@@ -136,6 +137,14 @@ function App() {
               element={
                 <ProtectedRoute superAdminOnly>
                   <SystemLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/registrations"
+              element={
+                <ProtectedRoute superAdminOnly>
+                  <PendingRegistrations />
                 </ProtectedRoute>
               }
             />

@@ -16,6 +16,7 @@ const channelRoutes = require('./routes/channelRoutes');
 const logsRoutes = require('./routes/logsRoutes');
 const migrationRoutes = require('./routes/migrationRoutes');
 const performanceRoutes = require('./routes/performanceRoutes');
+const registrationRoutes = require('./routes/registrationRoutes');
 const chatHandler = require('./socket/chatHandler');
 
 const app = express();
@@ -110,6 +111,7 @@ app.use('/api/channels', channelRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/migrate', migrationRoutes);
 app.use('/api/performance', performanceRoutes);
+app.use('/api/registrations', registrationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

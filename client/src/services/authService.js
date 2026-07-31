@@ -3,10 +3,14 @@ import api from './api';
 export const authService = {
   async register(data) {
     const response = await api.post('/auth/register', data);
+    
+    // Only store token and user if registration is immediately approved
+    // For pending registrations, user must wait for approval
     if (response.data.token) {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
     }
+    
     return response.data;
   },
 

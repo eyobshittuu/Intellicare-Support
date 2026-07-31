@@ -49,6 +49,31 @@ const User = sequelize.define('User', {
   is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  account_status: {
+    type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+    defaultValue: 'pending',
+    allowNull: false,
+    comment: 'Account approval status by super admin'
+  },
+  approved_by: {
+    type: DataTypes.BIGINT.UNSIGNED,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
+    comment: 'Super admin who approved/rejected the account'
+  },
+  approved_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Timestamp when account was approved/rejected'
+  },
+  rejection_reason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'Reason for account rejection'
   }
 }, {
   tableName: 'users',
@@ -84,5 +109,8 @@ User.prototype.toJSON = function() {
   delete values.password;
   return values;
 };
+
+// Define self-association for approver
+User.belongsTo(User, { as: 'approver', foreignKey: 'approved_by' });
 
 module.exports = User;

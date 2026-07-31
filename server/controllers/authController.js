@@ -73,16 +73,16 @@ exports.register = async (req, res) => {
       username: user.username,
       name: `${user.first_name} ${user.last_name}`,
       role: user.role,
+      account_status: user.account_status,
       action: 'USER_REGISTER'
     });
 
-    // Generate token
-    const token = generateToken(user.id);
-
+    // Don't generate token for pending accounts
+    // User must wait for approval
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
-      token,
+      message: 'Registration successful! Your account is pending approval by an administrator.',
+      requiresApproval: true,
       user: {
         id: user.id,
         email: user.email,
@@ -90,7 +90,8 @@ exports.register = async (req, res) => {
         first_name: user.first_name,
         middle_name: user.middle_name,
         last_name: user.last_name,
-        role: user.role
+        role: user.role,
+        account_status: user.account_status
       }
     });
   } catch (error) {
@@ -143,6 +144,37 @@ exports.login = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Account is deactivated. Please contact administrator.'
+      });
+    }
+
+    // Check if account is approved
+    if (user.account_status === 'pending') {
+      // Log pending account login attempt
+      logger.warn('Login attempt on pending account', {
+        userId: user.id,
+        email: user.email,
+        ip: req.ip,
+        action: 'LOGIN_PENDING_ACCOUNT'
+      });
+      
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is pending approval. Please wait for admin approval.'
+      });
+    }
+
+    if (user.account_status === 'rejected') {
+      // Log rejected account login attempt
+      logger.warn('Login attempt on rejected account', {
+        userId: user.id,
+        email: user.email,
+        ip: req.ip,
+        action: 'LOGIN_REJECTED_ACCOUNT'
+      });
+      
+      return res.status(403).json({
+        success: false,
+        message: 'Your account registration was rejected. Please contact support for more information.'
       });
     }
 
