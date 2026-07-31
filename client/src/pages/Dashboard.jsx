@@ -141,50 +141,50 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Header */}
+    <div className="space-y-4 sm:space-y-6">
+      {/* Welcome Header - Mobile Optimized */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
           Welcome, {user?.first_name}! 👋
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-sm sm:text-base text-gray-600 mt-1">
           {isAdmin ? 'Admin Dashboard - Overview of all tickets' : 'Your personal dashboard'}
         </p>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="flex flex-wrap gap-4">
+      {/* Quick Actions - Mobile Optimized */}
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Quick Actions</h2>
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
           {!isAdmin && (
             <Link
               to="/tickets/new"
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm sm:text-base font-medium"
             >
-              <Plus size={20} />
+              <Plus size={18} className="sm:w-5 sm:h-5" />
               Create New Ticket
             </Link>
           )}
           <Link
             to="/tickets"
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium"
           >
-            <Ticket size={20} />
+            <Ticket size={18} className="sm:w-5 sm:h-5" />
             View All Tickets
           </Link>
         </div>
       </div>
 
-      {/* Statistics - Admin Only */}
+      {/* Statistics - Admin Only - Mobile Optimized */}
       {isAdmin && stats && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Ticket Statistics</h2>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Ticket Statistics</h2>
           {error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 text-sm sm:text-base text-red-800">
               {error}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
               {statCards.map((stat) => {
                 const Icon = stat.icon;
                 const colorClasses = {
@@ -198,17 +198,17 @@ const Dashboard = () => {
                 return (
                   <div
                     key={stat.label}
-                    className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+                    className="bg-white rounded-lg shadow p-4 sm:p-6 hover:shadow-lg transition-shadow"
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">{stat.label}</p>
-                        <p className="text-3xl font-bold text-gray-900 mt-1">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between">
+                      <div className="mb-2 sm:mb-0">
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">{stat.label}</p>
+                        <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">
                           {stat.value}
                         </p>
                       </div>
-                      <div className={`${colorClasses[stat.color]} p-3 rounded-lg`}>
-                        <Icon className="text-white" size={24} />
+                      <div className={`${colorClasses[stat.color]} p-2 sm:p-3 rounded-lg self-end sm:self-auto`}>
+                        <Icon className="text-white" size={20} />
                       </div>
                     </div>
                   </div>
@@ -219,25 +219,26 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Ticket Lists - Admin Only */}
+      {/* Ticket Lists - Admin Only - Mobile Optimized */}
       {isAdmin && (
-        <div className="space-y-4">
-          {/* Tab Navigation */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="border-b border-gray-200">
-              <nav className="flex -mb-px">
+        <div className="space-y-3 sm:space-y-4">
+          {/* Tab Navigation - Mobile Scrollable */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="border-b border-gray-200 overflow-x-auto scrollbar-hide">
+              <nav className="flex -mb-px min-w-min">
                 <button
                   onClick={() => setActiveTab('pending')}
-                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     activeTab === 'pending'
                       ? 'border-yellow-500 text-yellow-700 bg-yellow-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <Clock size={18} />
-                  Pending Tickets
+                  <Clock size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden xs:inline">Pending</span>
+                  <span className="xs:hidden">Pend.</span>
                   {stats?.pending > 0 && (
-                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${
                       activeTab === 'pending' 
                         ? 'bg-yellow-200 text-yellow-800' 
                         : 'bg-gray-200 text-gray-600'
@@ -249,16 +250,17 @@ const Dashboard = () => {
                 
                 <button
                   onClick={() => setActiveTab('in_progress')}
-                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     activeTab === 'in_progress'
                       ? 'border-blue-500 text-blue-700 bg-blue-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <AlertCircle size={18} />
-                  In Progress
+                  <AlertCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden xs:inline">In Progress</span>
+                  <span className="xs:hidden">Progress</span>
                   {stats?.in_progress > 0 && (
-                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${
                       activeTab === 'in_progress' 
                         ? 'bg-blue-200 text-blue-800' 
                         : 'bg-gray-200 text-gray-600'
@@ -270,16 +272,17 @@ const Dashboard = () => {
                 
                 <button
                   onClick={() => setActiveTab('completed')}
-                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     activeTab === 'completed'
                       ? 'border-green-500 text-green-700 bg-green-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <CheckCircle size={18} />
-                  Completed
+                  <CheckCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden xs:inline">Completed</span>
+                  <span className="xs:hidden">Done</span>
                   {stats?.completed > 0 && (
-                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${
                       activeTab === 'completed' 
                         ? 'bg-green-200 text-green-800' 
                         : 'bg-gray-200 text-gray-600'
@@ -291,16 +294,17 @@ const Dashboard = () => {
                 
                 <button
                   onClick={() => setActiveTab('rejected')}
-                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     activeTab === 'rejected'
                       ? 'border-red-500 text-red-700 bg-red-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <XCircle size={18} />
-                  Rejected
+                  <XCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden xs:inline">Rejected</span>
+                  <span className="xs:hidden">Reject</span>
                   {stats?.rejected > 0 && (
-                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${
                       activeTab === 'rejected' 
                         ? 'bg-red-200 text-red-800' 
                         : 'bg-gray-200 text-gray-600'
@@ -313,39 +317,39 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Ticket List */}
-          <div className="bg-white rounded-lg shadow p-6">
+          {/* Ticket List - Mobile Optimized */}
+          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+              <div className="flex items-center justify-center py-8 sm:py-12">
+                <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-teal-600" />
               </div>
             ) : error ? (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 text-sm sm:text-base text-red-800">
                 {error}
               </div>
             ) : tickets.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-                  <Ticket className="text-gray-400" size={32} />
+              <div className="text-center py-8 sm:py-12">
+                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full mb-3 sm:mb-4">
+                  <Ticket className="text-gray-400" size={24} />
                 </div>
-                <p className="text-gray-500">No {activeTab.replace('_', ' ')} tickets</p>
+                <p className="text-sm sm:text-base text-gray-500">No {activeTab.replace('_', ' ')} tickets</p>
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {tickets.map(ticket => (
                     <TicketCard key={ticket.id} ticket={ticket} />
                   ))}
                 </div>
                 
                 {tickets.length >= 10 && (
-                  <div className="mt-6 text-center">
+                  <div className="mt-4 sm:mt-6 text-center">
                     <Link
                       to={`/tickets?status=${activeTab}`}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
+                      className="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm sm:text-base font-medium"
                     >
                       View All {activeTab.replace('_', ' ').charAt(0).toUpperCase() + activeTab.replace('_', ' ').slice(1)} Tickets
-                      <ArrowRight size={18} />
+                      <ArrowRight size={16} className="sm:w-[18px] sm:h-[18px]" />
                     </Link>
                   </div>
                 )}

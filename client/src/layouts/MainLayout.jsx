@@ -35,31 +35,32 @@ const MainLayout = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header - Teal */}
+      {/* Header - Teal - Mobile Optimized */}
       <header className="bg-teal-600 border-b border-teal-700 fixed top-0 left-0 right-0 z-30">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+        <div className="px-3 sm:px-4 md:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo & Menu Button */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {/* Logo */}
               <div className="flex items-center">
-                {/* Logo Image - Replace with your actual logo */}
+                {/* Logo Image */}
                 <img 
                   src="/logo.png" 
                   alt="IntelliCare Support" 
-                  className="h-10 w-auto"
+                  className="h-8 sm:h-10 w-auto"
                   onError={(e) => {
-                    // Fallback if logo not found - shows text instead
                     e.target.style.display = 'none';
                     e.target.nextElementSibling.style.display = 'flex';
                   }}
                 />
-                {/* Fallback text logo (hidden if image loads) */}
+                {/* Fallback text logo */}
                 <div className="hidden items-center">
-                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-                    <span className="text-teal-600 font-bold text-xl">IC</span>
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-lg flex items-center justify-center">
+                    <span className="text-teal-600 font-bold text-lg sm:text-xl">IC</span>
                   </div>
-                  <span className="ml-3 text-xl font-bold text-white">IntelliCare Support</span>
+                  <span className="ml-2 sm:ml-3 text-lg sm:text-xl font-bold text-white hidden md:inline">
+                    IntelliCare Support
+                  </span>
                 </div>
               </div>
               {/* Desktop Hamburger */}
@@ -68,31 +69,41 @@ const MainLayout = () => {
                 className="hidden lg:block p-2 rounded-md text-white hover:bg-teal-700 transition-colors"
                 title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
               >
-                {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
               {/* Mobile Hamburger */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-md text-white hover:bg-teal-700 transition-colors"
+                className="lg:hidden p-1.5 sm:p-2 rounded-md text-white hover:bg-teal-700 transition-colors relative"
+                aria-label="Toggle menu"
               >
-                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                {/* Unread badge on mobile menu */}
+                {unreadCounts.total > 0 && !mobileMenuOpen && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse">
+                    {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
+                  </span>
+                )}
               </button>
             </div>
 
-            {/* User Menu */}
-            <div className="flex items-center gap-4">
+            {/* User Menu - Mobile Optimized */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* User Info - Hidden on smallest screens */}
               <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium text-white">
+                <p className="text-xs sm:text-sm font-medium text-white truncate max-w-[120px] sm:max-w-none">
                   {user?.first_name} {user?.last_name}
                 </p>
-                <p className="text-xs text-teal-100 capitalize">{user?.role}</p>
+                <p className="text-[10px] sm:text-xs text-teal-100 capitalize">{user?.role}</p>
               </div>
+              {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 rounded-lg transition-colors"
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white hover:bg-teal-700 rounded-lg transition-colors"
+                aria-label="Logout"
               >
-                <LogOut size={18} />
-                <span className="hidden sm:inline">Logout</span>
+                <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
+                <span className="hidden xs:inline sm:inline">Logout</span>
               </button>
             </div>
           </div>
@@ -148,12 +159,27 @@ const MainLayout = () => {
         </div>
       </aside>
 
-      {/* Mobile Sidebar - Dark */}
+      {/* Mobile Sidebar - Dark - Improved */}
       {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 pt-16">
-          <div className="fixed inset-0 bg-black bg-opacity-75" onClick={() => setMobileMenuOpen(false)} />
-          <aside className="relative flex w-64 flex-col bg-gray-900 h-full transform transition-transform duration-300 ease-in-out">
-            <nav className="flex-1 px-4 py-6 space-y-1">
+        <div className="lg:hidden fixed inset-0 z-40 pt-14 sm:pt-16">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-75 transition-opacity"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          {/* Sidebar */}
+          <aside className="relative flex w-full max-w-xs flex-col bg-gray-900 h-full shadow-xl transform transition-transform duration-300 ease-in-out">
+            {/* User Info at Top - Mobile Only */}
+            <div className="px-4 py-4 border-b border-gray-800 bg-gray-800 sm:hidden">
+              <p className="text-sm font-medium text-white truncate">
+                {user?.first_name} {user?.last_name}
+              </p>
+              <p className="text-xs text-teal-300 capitalize">{user?.role}</p>
+            </div>
+            
+            {/* Navigation */}
+            <nav className="flex-1 px-3 sm:px-4 py-4 sm:py-6 space-y-1 overflow-y-auto">
               {navigation.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
@@ -162,16 +188,16 @@ const MainLayout = () => {
                     key={item.name}
                     to={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors relative ${
+                    className={`flex items-center gap-3 px-3 sm:px-4 py-3 text-sm font-medium rounded-lg transition-colors relative ${
                       active
                         ? 'bg-teal-600 text-white'
-                        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                        : 'text-gray-300 hover:bg-gray-800 hover:text-white active:bg-gray-700'
                     }`}
                   >
-                    <Icon size={20} />
-                    {item.name}
+                    <Icon size={20} className="flex-shrink-0" />
+                    <span className="flex-1">{item.name}</span>
                     {item.name === 'Chat' && unreadCounts.total > 0 && (
-                      <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 animate-pulse">
                         {unreadCounts.total > 9 ? '9+' : unreadCounts.total}
                       </span>
                     )}
@@ -179,15 +205,20 @@ const MainLayout = () => {
                 );
               })}
             </nav>
+            
+            {/* Footer - App Version */}
+            <div className="px-4 py-3 border-t border-gray-800 text-center">
+              <p className="text-xs text-gray-500">IntelliCare Support v1.0</p>
+            </div>
           </aside>
         </div>
       )}
 
-      {/* Main Content */}
-      <main className={`pt-16 transition-all duration-300 ease-in-out ${
+      {/* Main Content - Mobile Optimized */}
+      <main className={`pt-14 sm:pt-16 transition-all duration-300 ease-in-out min-h-screen ${
         sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'
       }`}>
-        <div className="px-4 sm:px-6 lg:px-8 py-8">
+        <div className="px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
           <Outlet />
         </div>
       </main>

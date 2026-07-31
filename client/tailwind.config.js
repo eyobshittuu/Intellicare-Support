@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        'xs': '475px', // Extra small devices
+      },
       colors: {
         primary: {
           50: '#e8f9f8',
@@ -34,5 +37,21 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Add scrollbar-hide utility
+    function({ addUtilities }) {
+      addUtilities({
+        '.scrollbar-hide': {
+          /* IE and Edge */
+          '-ms-overflow-style': 'none',
+          /* Firefox */
+          'scrollbar-width': 'none',
+          /* Safari and Chrome */
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          }
+        }
+      })
+    }
+  ],
 }
