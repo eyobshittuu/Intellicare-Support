@@ -948,4 +948,166 @@ router.get('/add-username-field', async (req, res) => {
   }
 });
 
+/**
+ * USER APPROVAL SYSTEM MIGRATION
+ * 
+ * Add account approval fields to users table
+ * GET https://your-backend.onrender.com/api/migrate/add-user-approval
+ * 
+ * ⚠️ IMPORTANT: This will auto-approve all existing users!
+ */
+router.get('/add-user-approval', async (req, res) => {
+  try {
+    logger.info('🔄 Starting migration: Add user approval system fields');
+
+    const dialect = db.getDialect();
+    
+    if (dialect === 'postgres') {
+      await db.query(`
+        DO $$ 
+        BEGIN
+          -- Add account_status column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'account_status'
+          ) THEN
+            ALTER TABLE users ADD COLUMN account_status VARCHAR(20) DEFAULT 'pending';
+            RAISE NOTICE 'Added account_status column';
+          END IF;
+
+          -- Add approved_by column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'approved_by'
+          ) THEN
+            ALTER TABLE users ADD COLUMN approved_by BIGINT;
+            RAISE NOTICE 'Added approved_by column';
+          END IF;
+
+          -- Add approved_at column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'approved_at'
+          ) THEN
+            ALTER TABLE users ADD COLUMN approved_at TIMESTAMP;
+            RAISE NOTICE 'Added approved_at column';
+          END IF;
+
+          -- Add rejection_reason column
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'rejection_reason'
+          ) THEN
+            ALTER TABLE users ADD COLUMN rejection_reason TEXT;
+            RAISE NOTICE 'Added rejection_reason column';
+          END IF;
+
+          -- CRITICAL: Auto-approve all existing users
+          UPDATE users 
+          SET account_status = 'approved', 
+              approved_at = created_at 
+          WHERE account_status IS NULL OR account_status != 'approved';
+          
+          RAISE NOTICE 'Auto-approved all existing users';
+        END $$;
+      `);
+      
+      logger.info('✅ PostgreSQL: User approval fields added successfully');
+      
+      // Verify the changes
+      const [results] = await db.query(`
+        SELECT 
+          column_name, 
+          is_nullable, 
+          data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' 
+        AND column_name IN ('account_status', 'approved_by', 'approved_at', 'rejection_reason')
+        ORDER BY column_name;
+      `);
+
+      // Check how many users were approved
+      const [userCount] = await db.query(`
+        SELECT 
+          account_status,
+          COUNT(*) as count
+        FROM users
+        GROUP BY account_status;
+      `);
+
+      return res.json({
+        success: true,
+        message: '✅ Migration completed successfully!',
+        database: 'PostgreSQL',
+        changes: 'Added account_status, approved_by, approved_at, rejection_reason columns',
+        columns: results,
+        userStats: userCount,
+        note: '✅ All existing users have been automatically approved and can login normally. New registrations will require super admin approval.'
+      });
+
+    } else if (dialect === 'mysql') {
+      const queries = [
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status VARCHAR(20) DEFAULT 'pending'`,
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by BIGINT UNSIGNED`,
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at DATETIME`,
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS rejection_reason TEXT`
+      ];
+
+      for (const query of queries) {
+        try {
+          await db.query(query);
+        } catch (err) {
+          if (!err.message.includes('Duplicate column')) {
+            throw err;
+          }
+        }
+      }
+
+      // Auto-approve existing users
+      await db.query(`
+        UPDATE users 
+        SET account_status = 'approved', 
+            approved_at = created_at 
+        WHERE account_status IS NULL OR account_status != 'approved'
+      `);
+
+      logger.info('✅ MySQL: User approval fields added successfully');
+
+      return res.json({
+        success: true,
+        message: '✅ Migration completed successfully!',
+        database: 'MySQL',
+        changes: 'Added account_status, approved_by, approved_at, rejection_reason columns',
+        note: '✅ All existing users have been automatically approved and can login normally. New registrations will require super admin approval.'
+      });
+
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported database dialect: ${dialect}`
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Migration failed:', error);
+
+    // Check if columns already exist
+    if (error.message && error.message.includes('already exists')) {
+      return res.json({
+        success: true,
+        message: 'Migration already completed (columns already exist)',
+        note: 'User approval system is already active'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message,
+      hint: 'Check server logs for more details',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 module.exports = router;
