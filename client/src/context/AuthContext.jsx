@@ -48,7 +48,13 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     const data = await authService.register(userData);
-    setUser(data.user);
+    
+    // Only set user if token is provided (account approved immediately)
+    // If requiresApproval is true, don't set user (they need to wait for approval)
+    if (data.token) {
+      setUser(data.user);
+    }
+    
     return data;
   };
 
