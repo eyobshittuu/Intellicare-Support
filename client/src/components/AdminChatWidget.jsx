@@ -31,7 +31,9 @@ const AdminChatWidget = () => {
     clearUnread, 
     getUnreadCount,
     requestNotificationPermission,
-    notificationPermission
+    notificationPermission,
+    setActive,
+    clearActive
   } = useNotifications();
   const [isMinimized, setIsMinimized] = useState(false);
   const [activeTab, setActiveTab] = useState('direct'); // 'direct' or 'channels'
@@ -258,8 +260,8 @@ const AdminChatWidget = () => {
     setShowUserList(false);
     await loadMessages(admin.id);
     
-    // Clear unread count for this admin
-    clearUnread('direct', admin.id);
+    // Set as active conversation and clear unread count
+    setActive('direct', admin.id);
   };
 
   const handleChannelSelect = async (channel) => {
@@ -273,8 +275,8 @@ const AdminChatWidget = () => {
       socket.emit('channel:join', { channelId: channel.id });
     }
     
-    // Clear unread count for this channel
-    clearUnread('channel', channel.id);
+    // Set as active conversation and clear unread count
+    setActive('channel', channel.id);
   };
 
   const loadChannelMessages = async (channelId) => {
@@ -564,6 +566,9 @@ const AdminChatWidget = () => {
     setMessages([]);
     setSelectedFile(null);
     setTypingUsers([]);
+    
+    // Clear active conversation
+    clearActive();
     
     // Leave channel room if was in one
     if (selectedChannel && socket) {

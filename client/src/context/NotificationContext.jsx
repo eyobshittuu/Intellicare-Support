@@ -28,6 +28,12 @@ export const NotificationProvider = ({ children }) => {
   const [notificationPermission, setNotificationPermission] = useState(
     notificationService.getPermission()
   );
+  
+  // Track active conversation to avoid incrementing unread for it
+  const [activeConversation, setActiveConversation] = useState({
+    type: null, // 'direct' or 'channel'
+    id: null // userId or channelId
+  });
 
   // Initialize notification permission on mount
   useEffect(() => {
@@ -142,6 +148,27 @@ export const NotificationProvider = ({ children }) => {
   }, [unreadCounts]);
 
   /**
+   * Set the active conversation (to avoid incrementing unread for it)
+   */
+  const setActive = useCallback((type, id) => {
+    console.log('[NotificationContext] Setting active conversation:', type, id);
+    setActiveConversation({ type, id });
+    
+    // Also clear unread for this conversation
+    if (type && id) {
+      clearUnread(type, id);
+    }
+  }, [clearUnread]);
+
+  /**
+   * Clear the active conversation
+   */
+  const clearActive = useCallback(() => {
+    console.log('[NotificationContext] Clearing active conversation');
+    setActiveConversation({ type: null, id: null });
+  }, []);
+
+  /**
    * Clear all unread counts
    */
   const clearAllUnread = useCallback(() => {
@@ -157,25 +184,59 @@ export const NotificationProvider = ({ children }) => {
     if (!socket || !user) return;
 
     const handleNewMessage = (message) => {
+      console.log('[NotificationContext] Message received:', message);
+      console.log('[NotificationContext] Current user ID:', user.id);
+      console.log('[NotificationContext] Message sender ID:', message.sender_id);
+      
       // Don't notify for own messages
-      if (message.sender_id === user.id) return;
+      if (message.sender_id === user.id) {
+        console.log('[NotificationContext] Ignoring own message');
+        return;
+      }
 
       const isChannel = !!message.channel_id;
       const senderId = message.sender_id;
       const channelId = message.channel_id;
 
+      console.log('[NotificationContext] Message type:', isChannel ? 'channel' : 'direct');
+      console.log('[NotificationContext] Channel ID:', channelId);
+      console.log('[NotificationContext] Sender ID:', senderId);
+
       // Check if we're on an active page (not idle/background)
       const isPageVisible = document.visibilityState === 'visible';
+      console.log('[NotificationContext] Page visible:', isPageVisible);
+      console.log('[NotificationContext] Active conversation:', activeConversation);
+      
+      // Don't increment unread if this message is for the active conversation
+      const isActiveConversation = 
+        (isChannel && activeConversation.type === 'channel' && activeConversation.id === channelId) ||
+        (!isChannel && activeConversation.type === 'direct' && activeConversation.id === senderId);
+      
+      if (isActiveConversation) {
+        console.log('[NotificationContext] Message is for active conversation, not incrementing unread');
+        // Still show toast but don't increment unread
+        const sender = message.sender;
+        const senderName = `${sender.first_name} ${sender.last_name}`;
+        
+        toast.info(`${senderName}${isChannel ? ` in #${message.channel.name}` : ''}`, {
+          description: message.content || 'Sent an attachment',
+          duration: 2000
+        });
+        return;
+      }
       
       // Increment unread count
       if (isChannel) {
+        console.log('[NotificationContext] Incrementing unread for channel:', channelId);
         incrementUnread('channel', channelId);
       } else {
+        console.log('[NotificationContext] Incrementing unread for user:', senderId);
         incrementUnread('direct', senderId);
       }
 
       // Show notification if enabled and page is not visible
       if (notificationsEnabled && !isPageVisible) {
+        console.log('[NotificationContext] Showing browser notification');
         notificationService.showMessageNotification(message, isChannel);
       }
       
@@ -183,6 +244,7 @@ export const NotificationProvider = ({ children }) => {
       const sender = message.sender;
       const senderName = `${sender.first_name} ${sender.last_name}`;
       
+      console.log('[NotificationContext] Showing toast notification');
       if (isChannel) {
         toast.info(`${senderName} in #${message.channel.name}`, {
           description: message.content || 'Sent an attachment',
@@ -197,6 +259,7 @@ export const NotificationProvider = ({ children }) => {
     };
 
     const handleMention = (data) => {
+      console.log('[NotificationContext] Mention received:', data);
       const { message, channel_id, everyone } = data;
       const sender = message.sender;
       const senderName = `${sender.first_name} ${sender.last_name}`;
@@ -225,15 +288,17 @@ export const NotificationProvider = ({ children }) => {
       }
     };
 
+    console.log('[NotificationContext] Setting up socket listeners');
     // Socket listeners
     socket.on('message:received', handleNewMessage);
     socket.on('mention:received', handleMention);
 
     return () => {
+      console.log('[NotificationContext] Cleaning up socket listeners');
       socket.off('message:received', handleNewMessage);
       socket.off('mention:received', handleMention);
     };
-  }, [socket, user, notificationsEnabled, incrementUnread]);
+  }, [socket, user, notificationsEnabled, incrementUnread, activeConversation]);
 
   // Listen for notification clicks
   useEffect(() => {
@@ -281,7 +346,10 @@ export const NotificationProvider = ({ children }) => {
     incrementUnread,
     clearUnread,
     getUnreadCount,
-    clearAllUnread
+    clearAllUnread,
+    setActive,
+    clearActive,
+    activeConversation
   };
 
   return (
