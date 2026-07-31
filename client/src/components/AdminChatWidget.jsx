@@ -78,8 +78,14 @@ const AdminChatWidget = ({ initialTab = 'direct' }) => {
 
   // Sync activeTab with initialTab prop
   useEffect(() => {
+    console.log('Initial Tab prop:', initialTab);
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  // Debug activeTab changes
+  useEffect(() => {
+    console.log('Active Tab changed to:', activeTab);
+  }, [activeTab]);
 
   // Load channels
   const loadChannels = async () => {
