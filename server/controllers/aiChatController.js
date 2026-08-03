@@ -39,9 +39,10 @@ exports.chatWithAI = async (req, res) => {
 
     // Check if Groq API key is configured
     if (!process.env.GROQ_API_KEY) {
-      return res.status(500).json({
+      console.error('GROQ_API_KEY is not configured in environment variables');
+      return res.status(503).json({
         success: false,
-        message: 'AI service is not configured. Please contact system administrator.'
+        message: 'AI service is not configured. Please add GROQ_API_KEY to environment variables.'
       });
     }
 
@@ -82,12 +83,17 @@ exports.chatWithAI = async (req, res) => {
     });
   } catch (error) {
     console.error('AI Chat Error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      status: error.status,
+      code: error.code
+    });
     
     // Handle specific Groq API errors
     if (error.status === 401) {
-      return res.status(500).json({
+      return res.status(503).json({
         success: false,
-        message: 'AI service authentication failed. Please contact system administrator.'
+        message: 'AI service authentication failed. Please check GROQ_API_KEY configuration.'
       });
     }
     

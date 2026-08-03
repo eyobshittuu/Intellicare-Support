@@ -59,13 +59,24 @@ const AIChatWidget = () => {
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error('AI Chat Error:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to get AI response. Please try again.';
+      
+      let errorMessage = 'Failed to get AI response. Please try again.';
+      
+      if (error.response?.status === 503) {
+        errorMessage = '⚙️ AI service is not configured yet. Please ask your administrator to add the GROQ_API_KEY.';
+      } else if (error.response?.status === 429) {
+        errorMessage = '⏱️ Too many requests. Please wait a moment and try again.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (!navigator.onLine) {
+        errorMessage = '🌐 No internet connection. Please check your network.';
+      }
       
       toast.error(errorMessage);
       
       const errorAiMessage = {
         role: 'assistant',
-        content: `❌ ${errorMessage}`,
+        content: errorMessage,
         timestamp: new Date(),
         isError: true
       };
