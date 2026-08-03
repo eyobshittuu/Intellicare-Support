@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { LogOut, Menu, X, LayoutDashboard, Ticket, Users, User, FileText, TrendingUp, MessageSquare, Hash, UserCog } from 'lucide-react';
 import { useState } from 'react';
+import AIChatWidget from '../components/AIChatWidget';
 
 const MainLayout = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -237,6 +238,9 @@ const MainLayout = () => {
           <Outlet />
         </div>
       </main>
+
+      {/* AI Chat Widget - Admin Only */}
+      {isAdmin && <AIChatWidget />}
     </div>
   );
 };
