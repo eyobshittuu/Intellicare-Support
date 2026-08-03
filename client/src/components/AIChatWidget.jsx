@@ -114,7 +114,7 @@ const AIChatWidget = () => {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all z-50 group"
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-teal-600 to-teal-700 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all z-50 group"
         title="Open AI Assistant"
       >
         <div className="relative">
@@ -131,7 +131,7 @@ const AIChatWidget = () => {
   return (
     <div className="fixed bottom-6 right-6 w-[400px] max-w-[calc(100vw-3rem)] bg-white rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden border border-gray-200">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
             <Bot size={24} />
@@ -142,7 +142,7 @@ const AIChatWidget = () => {
               AI Assistant
               <Sparkles size={16} className="text-yellow-300" />
             </h3>
-            <p className="text-xs text-purple-100">Powered by Groq</p>
+            <p className="text-xs text-teal-100">Powered by Groq</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -175,7 +175,7 @@ const AIChatWidget = () => {
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-2 ${
                     message.role === 'user'
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                      ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white'
                       : message.isError
                       ? 'bg-red-50 text-red-800 border border-red-200'
                       : 'bg-white text-gray-800 border border-gray-200'
@@ -183,13 +183,13 @@ const AIChatWidget = () => {
                 >
                   {message.role === 'assistant' && !message.isError && (
                     <div className="flex items-center gap-2 mb-1">
-                      <Bot size={14} className="text-purple-600" />
-                      <span className="text-xs font-medium text-purple-600">AI</span>
+                      <Bot size={14} className="text-teal-600" />
+                      <span className="text-xs font-medium text-teal-600">AI</span>
                     </div>
                   )}
                   <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                   <p className={`text-[10px] mt-1 ${
-                    message.role === 'user' ? 'text-purple-100' : 'text-gray-400'
+                    message.role === 'user' ? 'text-teal-100' : 'text-gray-400'
                   }`}>
                     {formatTime(message.timestamp)}
                   </p>
@@ -200,7 +200,7 @@ const AIChatWidget = () => {
               <div className="flex justify-start">
                 <div className="bg-white text-gray-800 border border-gray-200 rounded-2xl px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
+                    <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
                     <span className="text-sm text-gray-600">AI is thinking...</span>
                   </div>
                 </div>
@@ -227,14 +227,14 @@ const AIChatWidget = () => {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me anything about IT support..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-sm"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none text-sm"
                 rows="2"
                 disabled={isLoading}
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                className="px-4 py-2 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
