@@ -9,7 +9,7 @@ const AIChatWidget = () => {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: '👋 Hello! I\'m your IntelliCare IT Support Assistant. I can help you with:\n\n**System Help:**\n• Creating and managing tickets\n• Understanding ticket workflow\n• Navigating system features\n• Account questions\n\n**IT Support:**\n• Printer, computer, network issues\n• Software troubleshooting\n• Technical guidance\n\nHow can I assist you today?',
+      content: '👋 Hello! I\'m your IntelliCare Support Assistant.\n\nI can help you with:\n• Creating and managing tickets\n• Understanding ticket workflow\n• Navigating system features\n• Account and registration questions\n• General IT support guidance\n\nWhat would you like to know?',
       timestamp: new Date()
     }
   ]);
