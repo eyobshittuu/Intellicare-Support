@@ -239,8 +239,8 @@ const MainLayout = () => {
         </div>
       </main>
 
-      {/* AI Chat Widget - Admin Only */}
-      {isAdmin && <AIChatWidget />}
+      {/* AI Chat Widget - Available for All Authenticated Users */}
+      <AIChatWidget />
     </div>
   );
 };
