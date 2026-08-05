@@ -9,7 +9,7 @@ const AIChatWidget = () => {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: '👋 Hello! I\'m your AI IT Support Assistant. I can help you with:\n\n• Technical troubleshooting\n• Computer, printer, or network issues\n• Software problems\n• Ticket creation guidance\n• General IT questions\n\nHow can I assist you today?',
+      content: '👋 Hello! I\'m your IntelliCare IT Support Assistant. I can help you with:\n\n• How to create and manage tickets\n• Understanding ticket status\n• Navigating the system\n• Using chat features\n• Account and registration questions\n\nFor technical IT issues (printer, computer, network problems), please create a ticket!\n\nHow can I help you today?',
       timestamp: new Date()
     }
   ]);
@@ -122,7 +122,7 @@ const AIChatWidget = () => {
           <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>
         </div>
         <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          Ask AI Assistant
+          IntelliCare System Help
         </span>
       </button>
     );
@@ -139,10 +139,10 @@ const AIChatWidget = () => {
           </div>
           <div>
             <h3 className="font-semibold flex items-center gap-2">
-              AI Assistant
+              IntelliCare Assistant
               <Sparkles size={16} className="text-yellow-300" />
             </h3>
-            <p className="text-xs text-teal-100">Powered by Groq</p>
+            <p className="text-xs text-teal-100">System Helper</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -226,7 +226,7 @@ const AIChatWidget = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask me anything about IT support..."
+                placeholder="Ask about the ticketing system..."
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none text-sm"
                 rows="2"
                 disabled={isLoading}
